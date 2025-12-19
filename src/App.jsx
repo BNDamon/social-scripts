@@ -69,7 +69,9 @@ const INITIAL_CATEGORIES = {
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, onMouseEnter, onMouseLeave, isCurrent }) => {
   return (
     <div 
+      // DATA ATTRIBUTE FOR MOBILE SCRUBBER
       data-week-index={weekIndex}
+      
       className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
       style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
@@ -255,7 +257,7 @@ function App() {
   const requestNotificationPermission = useCallback(() => {
     if (!("Notification" in window)) { alert("This browser does not support desktop notifications"); return; }
     Notification.requestPermission().then((permission) => {
-      if (permission === "granted") new Notification("Mementus", { body: "Notifications enabled!" });
+      if (permission === "granted") new Notification("Mementum", { body: "Notifications enabled!" });
     });
   }, []);
 
@@ -266,52 +268,11 @@ function App() {
       const currentHours = String(now.getHours()).padStart(2, '0');
       const currentMinutes = String(now.getMinutes()).padStart(2, '0');
       if (`${currentHours}:${currentMinutes}` === reminderTime) {
-        new Notification("Mementus", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
+        new Notification("Mementum", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
       }
     }, 60000); 
     return () => clearInterval(checkTime);
   }, [reminderTime]);
-
-  // --- MOBILE SCRUBBER LOGIC ---
-  const [scrubbing, setScrubbing] = useState(false);
-  const [activeScrubId, setActiveScrubId] = useState(null); // ID of box under finger
-
-  const handleTouchStart = () => {
-    setScrubbing(true);
-  };
-
-  const handleTouchMove = useCallback((e) => {
-    // 1. Get touch coordinates
-    const touch = e.touches[0];
-    
-    // 2. Find element under finger
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    
-    // 3. Check if it's a week box (we'll add a data attribute to boxes later)
-    if (target && target.dataset.weekIndex) {
-      const index = parseInt(target.dataset.weekIndex);
-      
-      // 4. Update state only if it changed (performance)
-      if (activeScrubId !== index) {
-        setActiveScrubId(index);
-        
-        // Optional: Trigger a tiny vibration (haptic feedback) for that "clicking" feel
-        if (navigator.vibrate) navigator.vibrate(5);
-        
-        // Manually trigger the tooltip logic you already have
-        onBoxEnter({ target: target }, index);
-      }
-    }
-  }, [activeScrubId, onBoxEnter]);
-
-  const handleTouchEnd = () => {
-    setScrubbing(false);
-    if (activeScrubId !== null) {
-      // Open the modal for the week we landed on
-      onBoxClick(activeScrubId);
-      setActiveScrubId(null);
-    }
-  };
 
   const handleTimeChange = (e) => {
     setReminderTime(e.target.value);
@@ -350,6 +311,10 @@ function App() {
 
   const stats = getLifeStats;
 
+  // ------------------------------------------------------------------
+  // INTERACTION HANDLERS (Defined BEFORE Touch Logic)
+  // ------------------------------------------------------------------
+
   const jumpToNow = useCallback(() => {
     document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   }, []);
@@ -361,10 +326,16 @@ function App() {
   }, []);
 
   const onBoxEnter = useCallback((e, weekIndex) => {
-    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+    // Mobile Check for Tooltip Positioning
+    const isMobile = window.innerWidth < 768;
+    if (!e?.target) return; // Safety check for scrubbing
+
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
-    const y = rect.top + window.scrollY + 15;
+    // On mobile, float the tooltip WAY above the finger (-60px)
+    const yOffset = isMobile ? -60 : 15;
+    const y = rect.top + window.scrollY + yOffset;
+
     const entry = intentions[weekIndex];
     const isPast = weekIndex < stats.weeksLived;
     const isFuture = weekIndex > stats.weeksLived;
@@ -403,6 +374,43 @@ function App() {
   }, [intentions, categories, stats, getCategoryStyle]);
 
   const onBoxLeave = useCallback(() => { setTooltip(prev => ({ ...prev, show: false })); }, []);
+
+  // ------------------------------------------------------------------
+  // MOBILE SCRUBBER LOGIC (Defined AFTER onBoxEnter)
+  // ------------------------------------------------------------------
+  const [activeScrubId, setActiveScrubId] = useState(null); 
+
+  const handleTouchStart = () => { /* Ready state */ };
+
+  const handleTouchMove = useCallback((e) => {
+    const touch = e.touches[0];
+    // Find element under finger
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    // Check if it's a WeekBox
+    if (target && target.dataset.weekIndex) {
+      const index = parseInt(target.dataset.weekIndex);
+      if (activeScrubId !== index) {
+        setActiveScrubId(index);
+        // Haptic feedback
+        if (navigator.vibrate) navigator.vibrate(5);
+        // Show Tooltip manually
+        onBoxEnter({ target: target }, index); 
+      }
+    }
+  }, [activeScrubId, onBoxEnter]);
+
+  const handleTouchEnd = () => {
+    if (activeScrubId !== null) {
+      onBoxClick(activeScrubId); // Open Modal
+      setActiveScrubId(null);
+    }
+  };
+
+
+  // ------------------------------------------------------------------
+  // DATA MANAGEMENT
+  // ------------------------------------------------------------------
 
   const handleSaveBirthday = (e) => {
     e.preventDefault();
@@ -521,7 +529,7 @@ function App() {
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUS</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUM</h1>
           <p className="text-cyan-200/50 mb-8 font-medium tracking-wide">Your life in weeks.</p>
           <form onSubmit={handleSaveBirthday} className="space-y-5">
             <input type="date" name="dob" className="w-full bg-black/40 text-white p-4 rounded-xl border border-gray-800 transition-all duration-300 focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.2)] outline-none text-center text-xl placeholder-gray-600" required />
@@ -552,16 +560,8 @@ function App() {
             <button onClick={() => { setShowSettings(true); setSettingsTab('categories'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
           </div>
         </div>
-
         {view === 'grid' && (
-          <div 
-          className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-none" // Added touch-none to prevent scrolling while scrubbing
-          
-          // Attach the Scrubber Events
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
+          <div className="w-full flex flex-col gap-2 md:gap-3 mt-1 landscape-hide">
             <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center">
               {ERAS.map(era => {
                 const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
@@ -588,7 +588,12 @@ function App() {
       </header>
 
       {view === 'grid' && (
-        <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
+        <div 
+          className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-none" 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
             {Array.from({ length: stats.totalWeeks }).map((_, i) => {
               const isPast = i < stats.weeksLived;
