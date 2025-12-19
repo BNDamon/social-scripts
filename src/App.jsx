@@ -1,7 +1,7 @@
 // src/App.jsx
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 
-// --- STYLES: Custom Animations ---
+// --- STYLES: Custom Animations & Textures ---
 const GLOBAL_STYLES = `
   /* 1. The initial "Burn In" load animation */
   @keyframes burnIn {
@@ -12,34 +12,28 @@ const GLOBAL_STYLES = `
     animation: burnIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
   }
 
-  /* 2. NEW: The "Future Shimmer" scanline effect */
-  @keyframes shimmer {
-    0% { background-position: 150% 0; }
-    100% { background-position: -150% 0; }
-  }
-  .future-shimmer {
-    /* A very subtle angled gradient moving across the dark box */
-    background: linear-gradient(
-      120deg, 
-      transparent 30%, 
-      rgba(255, 255, 255, 0.05) 50%, 
-      transparent 70%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 6s infinite linear; /* Slow, continuous movement */
-    border-color: rgba(255, 255, 255, 0.08); /* Slightly brighter default border */
+  /* 2. NEW: The "Crossed Out" Texture for past weeks */
+  .crossed-out {
+    /* Creates a subtle X over the box using gradients. Very low performance cost. */
+    background-image: 
+      linear-gradient(to top left,  transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%),
+      linear-gradient(to top right, transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%);
+    /* Makes the box feel matte and "spent" */
+    opacity: 0.7;
+    border-color: transparent !important;
   }
 `;
 
 // --- CONSTANTS: DIMMED NEON ERAS ---
+// Slightly increased opacity for better contrast with the cross-out texture
 const ERAS = [
-  { name: 'Early Childhood', ageLimit: 5,  color: 'bg-cyan-500/20 border border-cyan-500/50 shadow-[0_0_2px_rgba(6,182,212,0.3)]' },
-  { name: 'School Age',      ageLimit: 18, color: 'bg-blue-500/20 border border-blue-500/50 shadow-[0_0_2px_rgba(59,130,246,0.3)]' },
-  { name: 'Early Adulthood', ageLimit: 25, color: 'bg-indigo-500/20 border border-indigo-500/50 shadow-[0_0_2px_rgba(99,102,241,0.3)]' },
-  { name: 'The Building Years', ageLimit: 35, color: 'bg-violet-500/20 border border-violet-500/50 shadow-[0_0_2px_rgba(139,92,246,0.3)]' },
-  { name: 'Mid-Life',        ageLimit: 50, color: 'bg-fuchsia-500/20 border border-fuchsia-500/50 shadow-[0_0_2px_rgba(217,70,239,0.3)]' },
-  { name: 'Later Life',      ageLimit: 65, color: 'bg-pink-500/20 border border-pink-500/50 shadow-[0_0_2px_rgba(236,72,153,0.3)]' },
-  { name: 'Golden Years',    ageLimit: 90, color: 'bg-rose-500/20 border border-rose-500/50 shadow-[0_0_2px_rgba(244,63,94,0.3)]' },
+  { name: 'Early Childhood', ageLimit: 5,  color: 'bg-cyan-600/30' },
+  { name: 'School Age',      ageLimit: 18, color: 'bg-blue-600/30' },
+  { name: 'Early Adulthood', ageLimit: 25, color: 'bg-indigo-600/30' },
+  { name: 'The Building Years', ageLimit: 35, color: 'bg-violet-600/30' },
+  { name: 'Mid-Life',        ageLimit: 50, color: 'bg-fuchsia-600/30' },
+  { name: 'Later Life',      ageLimit: 65, color: 'bg-pink-600/30' },
+  { name: 'Golden Years',    ageLimit: 90, color: 'bg-rose-600/30' },
 ];
 
 const PRESET_COLORS = {
@@ -523,72 +517,84 @@ function App() {
           </div>
         </div>
         
+        {/* ERA & CATEGORY LEGEND (Updated) */}
         {view === 'grid' && (
-          <div className="w-full flex md:flex-wrap gap-4 md:gap-6 text-[10px] text-gray-500 uppercase tracking-wider font-bold overflow-x-auto no-scrollbar md:justify-center whitespace-nowrap px-1">
-            {ERAS.map(era => (
-              <div key={era.name} className="flex items-center gap-2 flex-shrink-0">
-                <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>{era.name}
-              </div>
-            ))}
-            <div className="w-px h-3 bg-gray-700 mx-2 flex-shrink-0"></div>
-            {Object.entries(categories).filter(([k]) => k !== 'default').map(([key, val]) => {
-              const styles = getCategoryStyle(key);
-              return (
-                <div key={key} className="flex items-center gap-2 flex-shrink-0">
-                  <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>{val.label}
-                </div>
-              );
-            })}
+          <div className="w-full flex flex-col gap-3 items-center mt-2">
+            
+            {/* LINE 1: ERAS (Current Era Highlighted) */}
+            <div className="flex flex-wrap justify-center gap-4 text-[10px] uppercase tracking-wider font-bold">
+              {ERAS.map(era => {
+                // Check if this is the user's current era
+                const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
+                return (
+                  <div 
+                    key={era.name} 
+                    className={`flex items-center gap-2 transition-all duration-300 ${isCurrentEra ? 'opacity-100 text-white scale-110' : 'opacity-40 text-white-600'}`}
+                  >
+                    <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
+                    {era.name}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* LINE 2: CATEGORIES (New Line) */}
+            <div className="flex flex-wrap justify-center gap-4 text-[10px] uppercase tracking-wider font-bold">
+              {Object.entries(categories).map(([key, val]) => {
+                const styles = getCategoryStyle(key);
+                return (
+                  <div key={key} className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
+                    <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>
+                    <span className="text-gray-400">{val.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            
           </div>
         )}
       </header>
 
-      {/* --- GRID VIEW (Optimized) --- */}
+      {/* --- GRID VIEW (Scrollable Container) --- */}
       {view === 'grid' && (
         <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
-           {/* Fixed Width Container */}
+           {/* Fixed Width Container for 52-week rows */}
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
             {Array.from({ length: stats.totalWeeks }).map((_, i) => {
               const isPast = i < stats.weeksLived;
               const isCurrent = i === stats.weeksLived;
               const isFuture = i > stats.weeksLived;
-              
-              // OPTIMIZATION: Only animate the next 5 years (260 weeks) to save GPU
-              const isNearFuture = isFuture && (i < stats.weeksLived + 260); 
-              
               const entry = intentions[i];
               const era = getEraForWeek(i);
               
               const isMatch = doesMatchSearch(entry);
               const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
 
-              // Calculate staggered animation delay (Only for past weeks, capped to prevent lag)
+              // Calculate staggered animation delay for intro (Capped for performance)
               const animDelay = introMode && isPast ? `${Math.min(i * 2, 3000)}ms` : undefined;
 
+              // Base Box Style
               let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
               
               if (isPast) {
-                // PAST: DIMMED NEON
-                boxClass += ` ${era.color} hover:bg-white hover:shadow-[0_0_15px_rgba(255,255,255,0.8)] hover:scale-150 hover:z-50 cursor-pointer`;
                 if (entry) {
+                  // MEMORY (Filled): Keep interactive glow
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
                   if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_20px_rgba(251,191,36,1)] z-20 animate-pulse cursor-pointer hover:scale-150";
+                } else {
+                   // EMPTY PAST: Crossed out and static (heavy feeling)
+                   boxClass += ` ${era.color} crossed-out cursor-pointer hover:brightness-125`;
                 }
               } else if (isCurrent) {
-                // CURRENT
+                // CURRENT: Bright White Pulse
                 boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
               } else if (isFuture) {
-                if (isNearFuture) {
-                   // NEAR FUTURE: Active Shimmer (High Detail)
-                   boxClass += " future-shimmer border border-white/10 hover:border-white/50 hover:bg-white/10 cursor-pointer"; 
-                } else {
-                   // DISTANT FUTURE: Static (Low Cost)
-                   boxClass += " bg-transparent border border-white/5 hover:border-white/20 cursor-pointer";
-                }
-
+                // FUTURE: Static, empty outline.
+                boxClass += " bg-transparent border border-white/5 hover:border-white/20 cursor-pointer"; 
                 if (entry) {
+                  // FUTURE GOAL
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `bg-transparent border-2 ${styles.border} shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10 hover:scale-125`; 
@@ -605,7 +611,7 @@ function App() {
                   animDelay={animDelay}
                   onClick={onBoxClick}
                   onMouseEnter={onBoxEnter}
-                  onMouseLeave={onBoxLeave} // Ensure this matches your callback name (onBoxLeave)
+                  onMouseLeave={onBoxLeave}
                   isCurrent={isCurrent}
                 />
               );
