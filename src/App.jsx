@@ -517,30 +517,43 @@ function App() {
           </div>
         </div>
         
-        {/* ERA & CATEGORY LEGEND (Mobile Optimized) */}
+        {/* ERA & CATEGORY LEGEND (Restored Highlighting + Two Lines) */}
         {view === 'grid' && (
-          <div className="w-full flex flex-nowrap gap-4 overflow-x-auto no-scrollbar items-center py-2 px-1">
-            {/* Eras */}
-            {ERAS.map(era => (
-              <div key={era.name} className="flex items-center gap-2 flex-shrink-0">
-                <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
-                <span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{era.name}</span>
-              </div>
-            ))}
+          <div className="w-full flex flex-col gap-2 md:gap-3 mt-1">
             
-            {/* Divider */}
-            <div className="w-px h-4 bg-gray-800 flex-shrink-0 mx-2"></div>
+            {/* ROW 1: ERAS (With Current Era Highlight) */}
+            <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center">
+              {ERAS.map(era => {
+                // Logic: Is this the era I am currently living in?
+                const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
+                
+                return (
+                  <div 
+                    key={era.name} 
+                    className={`flex items-center gap-2 flex-shrink-0 transition-all duration-300 ${isCurrentEra ? 'opacity-100 scale-105' : 'opacity-50'}`}
+                  >
+                    <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
+                    <span className={`text-[10px] uppercase font-bold whitespace-nowrap ${isCurrentEra ? 'text-white' : 'text-gray-500'}`}>
+                      {era.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ROW 2: CATEGORIES (Separate Line) */}
+            <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center border-t border-white/5 md:border-none pt-2 md:pt-0">
+              {Object.entries(categories).filter(([k]) => k !== 'default').map(([key, val]) => {
+                const styles = getCategoryStyle(key);
+                return (
+                  <div key={key} className="flex items-center gap-2 flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity">
+                    <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>
+                    <span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{val.label}</span>
+                  </div>
+                );
+              })}
+            </div>
             
-            {/* Categories */}
-            {Object.entries(categories).filter(([k]) => k !== 'default').map(([key, val]) => {
-              const styles = getCategoryStyle(key);
-              return (
-                <div key={key} className="flex items-center gap-2 flex-shrink-0">
-                  <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>
-                  <span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{val.label}</span>
-                </div>
-              );
-            })}
           </div>
         )}
       </header>
