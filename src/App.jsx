@@ -257,7 +257,7 @@ function App() {
   const requestNotificationPermission = useCallback(() => {
     if (!("Notification" in window)) { alert("This browser does not support desktop notifications"); return; }
     Notification.requestPermission().then((permission) => {
-      if (permission === "granted") new Notification("Mementum", { body: "Notifications enabled!" });
+      if (permission === "granted") new Notification("mementus", { body: "Notifications enabled!" });
     });
   }, []);
 
@@ -268,7 +268,7 @@ function App() {
       const currentHours = String(now.getHours()).padStart(2, '0');
       const currentMinutes = String(now.getMinutes()).padStart(2, '0');
       if (`${currentHours}:${currentMinutes}` === reminderTime) {
-        new Notification("Mementum", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
+        new Notification("mementus", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
       }
     }, 60000); 
     return () => clearInterval(checkTime);
@@ -529,7 +529,7 @@ function App() {
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUM</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">Mementus</h1>
           <p className="text-cyan-200/50 mb-8 font-medium tracking-wide">Your life in weeks.</p>
           <form onSubmit={handleSaveBirthday} className="space-y-5">
             <input type="date" name="dob" className="w-full bg-black/40 text-white p-4 rounded-xl border border-gray-800 transition-all duration-300 focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.2)] outline-none text-center text-xl placeholder-gray-600" required />
@@ -589,7 +589,7 @@ function App() {
 
       {view === 'grid' && (
         <div 
-          className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-none" 
+          className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y" 
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
