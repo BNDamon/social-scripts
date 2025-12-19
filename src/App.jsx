@@ -69,6 +69,7 @@ const INITIAL_CATEGORIES = {
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, onMouseEnter, onMouseLeave, isCurrent }) => {
   return (
     <div 
+      data-week-index={weekIndex}
       className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
       style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
@@ -270,6 +271,47 @@ function App() {
     }, 60000); 
     return () => clearInterval(checkTime);
   }, [reminderTime]);
+
+  // --- MOBILE SCRUBBER LOGIC ---
+  const [scrubbing, setScrubbing] = useState(false);
+  const [activeScrubId, setActiveScrubId] = useState(null); // ID of box under finger
+
+  const handleTouchStart = () => {
+    setScrubbing(true);
+  };
+
+  const handleTouchMove = useCallback((e) => {
+    // 1. Get touch coordinates
+    const touch = e.touches[0];
+    
+    // 2. Find element under finger
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    // 3. Check if it's a week box (we'll add a data attribute to boxes later)
+    if (target && target.dataset.weekIndex) {
+      const index = parseInt(target.dataset.weekIndex);
+      
+      // 4. Update state only if it changed (performance)
+      if (activeScrubId !== index) {
+        setActiveScrubId(index);
+        
+        // Optional: Trigger a tiny vibration (haptic feedback) for that "clicking" feel
+        if (navigator.vibrate) navigator.vibrate(5);
+        
+        // Manually trigger the tooltip logic you already have
+        onBoxEnter({ target: target }, index);
+      }
+    }
+  }, [activeScrubId, onBoxEnter]);
+
+  const handleTouchEnd = () => {
+    setScrubbing(false);
+    if (activeScrubId !== null) {
+      // Open the modal for the week we landed on
+      onBoxClick(activeScrubId);
+      setActiveScrubId(null);
+    }
+  };
 
   const handleTimeChange = (e) => {
     setReminderTime(e.target.value);
@@ -510,8 +552,16 @@ function App() {
             <button onClick={() => { setShowSettings(true); setSettingsTab('categories'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
           </div>
         </div>
+
         {view === 'grid' && (
-          <div className="w-full flex flex-col gap-2 md:gap-3 mt-1 landscape-hide">
+          <div 
+          className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-none" // Added touch-none to prevent scrolling while scrubbing
+          
+          // Attach the Scrubber Events
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
             <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center">
               {ERAS.map(era => {
                 const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
