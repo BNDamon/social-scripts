@@ -55,7 +55,7 @@ const WeekBox = React.memo(({
     <div 
       className={`w-[6px] h-[6px] md:w-[9px] md:h-[9px] rounded-[1px] ${boxClass} ${opacityClass} transition-all duration-300`} 
       onClick={() => onClick(weekIndex)} 
-      onMouseEnter={(e) => onMouseEnter(e, weekIndex)} // Pass Index Only
+      onMouseEnter={(e) => onMouseEnter(e, weekIndex)} 
       onMouseLeave={onMouseLeave}
       id={isCurrent ? "current-week-box" : undefined}
     />
@@ -69,12 +69,10 @@ const WeekBox = React.memo(({
 });
 
 function App() {
-  // --- OPTIMIZATION 1: Lazy Initialization (Only reads localstorage ONCE) ---
   const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
   const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
   const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(DEFAULT_CATEGORIES)));
 
-  // UI State
   const [view, setView] = useState('grid');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
@@ -83,22 +81,16 @@ function App() {
   const [isMilestone, setIsMilestone] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('default');
   
-  // Search State
-  const [rawSearch, setRawSearch] = useState(''); // What the user types
-  const [debouncedSearch, setDebouncedSearch] = useState(''); // What we actually search for
-  
-  // Settings State
+  const [rawSearch, setRawSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('blue');
   const [settingsTab, setSettingsTab] = useState('categories');
-  
-  // Tooltip State
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
   
   const fileInputRef = useRef(null);
   const currentBoxRef = useRef(null);
 
-  // --- OPTIMIZATION 2: Debounce Search (Wait 300ms before filtering) ---
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(rawSearch);
@@ -106,7 +98,31 @@ function App() {
     return () => clearTimeout(handler);
   }, [rawSearch]);
 
-  // --- Helpers ---
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        if (e.key === 'Escape') {
+          e.target.blur();
+          setShowModal(false);
+          setShowSettings(false);
+        }
+        return;
+      }
+      switch(e.key.toLowerCase()) {
+        case 'k':
+        case '/': e.preventDefault(); document.querySelector('input[type="text"]')?.focus(); break;
+        case 'escape': setShowModal(false); setShowSettings(false); setRawSearch(''); break;
+        case 't': jumpToNow(); break;
+        case 'g': setView('grid'); break;
+        case 'l': setView('timeline'); break;
+        case 's': setView('stats'); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const getCategoryStyle = useCallback((catKey) => {
     const cat = categories[catKey] || categories.default;
     const colorKey = cat.colorKey || 'green'; 
@@ -143,10 +159,9 @@ function App() {
 
   const stats = getLifeStats;
 
-  // --- Optimized Handlers ---
   const jumpToNow = useCallback(() => {
     const el = document.getElementById("current-week-box");
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   }, []);
 
   const onBoxClick = useCallback((weekIndex) => {
@@ -154,14 +169,14 @@ function App() {
     setTooltip(prev => ({ ...prev, show: false }));
   }, [intentions, categories]);
 
-  // --- OPTIMIZATION 3: Calculate Tooltip Content ON DEMAND ---
-  // We pass only the INDEX to the box. We calculate content only when hovered.
   const onBoxEnter = useCallback((e, weekIndex) => {
+    // Disable tooltips on touch devices (simple check)
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
     const y = rect.top + window.scrollY + 15;
     
-    // Construct content here, instead of passing it into every child prop
     const entry = intentions[weekIndex];
     const isPast = weekIndex < stats.weeksLived;
     const isFuture = weekIndex > stats.weeksLived;
@@ -170,10 +185,8 @@ function App() {
     const era = getEraForWeek(weekIndex);
     
     let content = null;
-
-    if (isCurrent) {
-        content = <div className="font-bold text-cyan-400">THIS WEEK</div>;
-    } else if (isPast && entry) {
+    if (isCurrent) content = <div className="font-bold text-cyan-400">THIS WEEK</div>;
+    else if (isPast && entry) {
         const catKey = entry.category || 'default';
         const styles = getCategoryStyle(catKey);
         content = (
@@ -192,12 +205,7 @@ function App() {
             </div>
         );
     } else {
-        content = (
-            <div className="text-left">
-            <div className="text-[10px] uppercase font-bold text-gray-500">{dateStr}</div>
-            <div className="text-xs text-gray-400">{era.name}</div>
-            </div>
-        );
+        content = <div className="text-left"><div className="text-[10px] uppercase font-bold text-gray-500">{dateStr}</div><div className="text-xs text-gray-400">{era.name}</div></div>;
     }
 
     setTooltip(prev => {
@@ -210,7 +218,6 @@ function App() {
     setTooltip(prev => ({ ...prev, show: false }));
   }, []);
 
-  // --- Logic Handlers ---
   const handleSaveBirthday = (e) => {
     e.preventDefault();
     const date = e.target.dob.value;
@@ -227,7 +234,7 @@ function App() {
   };
 
   const resetApp = () => {
-    if (confirm("⚠️ DANGER: This will permanently delete ALL your memories, milestones, and settings.\n\nAre you absolutely sure?")) {
+    if (confirm("⚠️ DANGER: This will permanently delete ALL your memories.\n\nAre you sure?")) {
       localStorage.removeItem('dob');
       localStorage.removeItem('intentions');
       localStorage.removeItem('categories');
@@ -239,17 +246,12 @@ function App() {
   };
 
   const exportData = () => {
-    const data = { 
-      dob: birthday, 
-      intentions: intentions, 
-      categories: categories, 
-      exportedAt: new Date().toISOString() 
-    };
+    const data = { dob: birthday, intentions: intentions, categories: categories, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `memento-mori-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `memento-mori-backup.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -285,7 +287,6 @@ function App() {
     let text = '';
     let milestone = false;
     let category = 'default';
-
     if (typeof savedData === 'string') {
       text = savedData;
     } else if (savedData) {
@@ -294,7 +295,6 @@ function App() {
       category = savedData.category || 'default';
       if (!categories[category]) category = 'default';
     }
-
     setSelectedWeek(weekIndex);
     setTempIntention(text);
     setIsMilestone(milestone);
@@ -305,17 +305,11 @@ function App() {
   const saveIntention = () => {
     if (selectedWeek === null) return;
     const newIntentions = { ...intentions };
-    
     if (tempIntention.trim() === "") {
       delete newIntentions[selectedWeek];
     } else {
-      newIntentions[selectedWeek] = {
-        text: tempIntention,
-        isMilestone: isMilestone,
-        category: selectedCategory
-      };
+      newIntentions[selectedWeek] = { text: tempIntention, isMilestone: isMilestone, category: selectedCategory };
     }
-
     setIntentions(newIntentions);
     localStorage.setItem('intentions', JSON.stringify(newIntentions));
     setShowModal(false);
@@ -391,44 +385,47 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white p-4 md:p-10 flex flex-col items-center relative">
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col items-center relative pb-24 md:pb-10">
       
       {/* HEADER */}
-      <header className="max-w-[1200px] w-full flex flex-col gap-6 mb-8 border-b border-gray-800 pb-6">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+      <header className="w-full max-w-[1200px] flex flex-col gap-6 p-4 md:p-10 pb-4 border-b border-gray-800 bg-[#121212] sticky top-0 z-30">
+        <div className="flex flex-row justify-between items-end gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">LIFE GRID</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              <span className="text-white font-bold">{Object.keys(intentions).length}</span> Memories | <span className="text-white font-bold">{stats.weeksLived}</span> Weeks Lived
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">LIFE GRID</h1>
+            <p className="text-gray-500 text-xs md:text-sm mt-1">
+              <span className="text-white font-bold">{Object.keys(intentions).length}</span> Memories | <span className="text-white font-bold">{stats.weeksLived}</span> Weeks
             </p>
           </div>
           
           <div className="flex gap-3 items-center flex-wrap justify-end">
-            <input type="text" placeholder="Search..." value={rawSearch} onChange={(e) => setRawSearch(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2 w-32 focus:w-48 transition-all outline-none" />
-            <div className="bg-gray-800 p-1 rounded-lg flex">
+            <input type="text" placeholder="Search..." value={rawSearch} onChange={(e) => setRawSearch(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2 w-28 md:w-32 focus:w-48 transition-all outline-none" />
+            
+            {/* Desktop View Toggles (Hidden on Mobile) */}
+            <div className="bg-gray-800 p-1 rounded-lg hidden md:flex">
               {['grid', 'timeline', 'stats'].map(v => (
                  <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${view === v ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>{v}</button>
               ))}
             </div>
+
             <button onClick={() => { setShowSettings(true); setSettingsTab('categories'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              <span className="text-xs font-bold uppercase hidden md:inline">Options</span>
             </button>
           </div>
         </div>
-
+        
+        {/* ERA LEGEND (Mobile Scrollable) */}
         {view === 'grid' && (
-          <div className="w-full hidden md:flex flex-wrap gap-6 text-[10px] text-gray-500 uppercase tracking-wider font-bold justify-center">
+          <div className="w-full flex md:flex-wrap gap-4 md:gap-6 text-[10px] text-gray-500 uppercase tracking-wider font-bold overflow-x-auto no-scrollbar md:justify-center whitespace-nowrap px-1">
             {ERAS.map(era => (
-              <div key={era.name} className="flex items-center gap-2">
+              <div key={era.name} className="flex items-center gap-2 flex-shrink-0">
                 <div className={`w-3 h-3 ${era.color} rounded-[1px]`}></div>{era.name}
               </div>
             ))}
-            <div className="w-px h-3 bg-gray-700 mx-2"></div>
+            <div className="w-px h-3 bg-gray-700 mx-2 flex-shrink-0"></div>
             {Object.entries(categories).filter(([k]) => k !== 'default').map(([key, val]) => {
               const styles = getCategoryStyle(key);
               return (
-                <div key={key} className="flex items-center gap-2">
+                <div key={key} className="flex items-center gap-2 flex-shrink-0">
                   <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>{val.label}
                 </div>
               );
@@ -437,61 +434,63 @@ function App() {
         )}
       </header>
 
-      {/* --- GRID VIEW --- */}
+      {/* --- GRID VIEW (Scrollable Container) --- */}
       {view === 'grid' && (
-        <div className="flex flex-wrap justify-center gap-[2px] md:gap-[3px] max-w-[1200px] pb-20">
-          {Array.from({ length: stats.totalWeeks }).map((_, i) => {
-            const isPast = i < stats.weeksLived;
-            const isCurrent = i === stats.weeksLived;
-            const isFuture = i > stats.weeksLived;
-            const entry = intentions[i];
-            const era = getEraForWeek(i);
-            
-            // Optimization: Pass raw search query to doesMatchSearch which now uses debouncedSearch state
-            const isMatch = doesMatchSearch(entry);
-            const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
+        <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
+           {/* Fixed Width Container for 52-week rows */}
+           <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
+            {Array.from({ length: stats.totalWeeks }).map((_, i) => {
+              const isPast = i < stats.weeksLived;
+              const isCurrent = i === stats.weeksLived;
+              const isFuture = i > stats.weeksLived;
+              const entry = intentions[i];
+              const era = getEraForWeek(i);
+              
+              const isMatch = doesMatchSearch(entry);
+              const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
 
-            let boxClass = "bg-[#1a1a1a] border border-[#222]"; 
-            
-            if (isPast) {
-              boxClass = `${era.color} border-none hover:opacity-80 cursor-pointer transition-opacity`; 
-              if (entry) {
-                const catKey = entry.category || 'default';
-                const styles = getCategoryStyle(catKey);
-                boxClass = `${styles.bg} shadow-[0_0_5px_rgba(0,0,0,0.5)] z-10`;
-                if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)] z-20 hover:bg-amber-300";
+              let boxClass = "bg-[#1a1a1a] border border-[#222]"; 
+              
+              if (isPast) {
+                boxClass = `${era.color} border-none hover:opacity-80 cursor-pointer transition-opacity`; 
+                if (entry) {
+                  const catKey = entry.category || 'default';
+                  const styles = getCategoryStyle(catKey);
+                  boxClass = `${styles.bg} shadow-[0_0_5px_rgba(0,0,0,0.5)] z-10`;
+                  if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)] z-20 hover:bg-amber-300";
+                }
+              } else if (isCurrent) {
+                boxClass = "bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] z-30 scale-125 animate-pulse cursor-pointer"; 
+              } else if (isFuture) {
+                boxClass = "bg-[#121212] border border-[#222] hover:border-gray-500 cursor-pointer"; 
+                if (entry) {
+                  const catKey = entry.category || 'default';
+                  const styles = getCategoryStyle(catKey);
+                  boxClass = `bg-transparent border-2 ${styles.border} z-10`; 
+                  if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.2)]";
+                }
               }
-            } else if (isCurrent) {
-              boxClass = "bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] z-30 scale-125 animate-pulse cursor-pointer"; 
-            } else if (isFuture) {
-              boxClass = "bg-[#121212] border border-[#222] hover:border-gray-500 cursor-pointer"; 
-              if (entry) {
-                const catKey = entry.category || 'default';
-                const styles = getCategoryStyle(catKey);
-                boxClass = `bg-transparent border-2 ${styles.border} z-10`; 
-                if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.2)]";
-              }
-            }
 
-            return (
-              <WeekBox 
-                key={i} 
-                weekIndex={i}
-                boxClass={boxClass}
-                opacityClass={opacityClass}
-                onClick={onBoxClick}
-                onMouseEnter={onBoxEnter}
-                onMouseLeave={onBoxLeave}
-                isCurrent={isCurrent}
-              />
-            );
-          })}
+              return (
+                <WeekBox 
+                  key={i} 
+                  weekIndex={i}
+                  boxClass={boxClass}
+                  opacityClass={opacityClass}
+                  onClick={onBoxClick}
+                  onMouseEnter={onBoxEnter}
+                  onMouseLeave={onBoxLeave}
+                  isCurrent={isCurrent}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* --- TIMELINE VIEW (Unchanged) --- */}
+      {/* --- TIMELINE VIEW (Padded) --- */}
       {view === 'timeline' && (
-        <div className="max-w-2xl w-full flex flex-col gap-6 pb-20">
+        <div className="max-w-2xl w-full flex flex-col gap-6 px-4 md:px-0">
           {getSortedEntries().length === 0 ? (
             <div className="text-center text-gray-500 py-20">{debouncedSearch ? "No matches found." : "No memories logged yet."}</div>
           ) : (
@@ -516,15 +515,15 @@ function App() {
         </div>
       )}
 
-      {/* --- STATS VIEW (Unchanged) --- */}
+      {/* --- STATS VIEW (Padded) --- */}
       {view === 'stats' && (
-        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 pb-20 animate-in fade-in duration-500">
+        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 animate-in fade-in duration-500">
            {/* ... stats content ... */}
            <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span><span className="text-xs uppercase tracking-widest text-gray-500">Total Memories</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span><span className="text-xs uppercase tracking-widest text-amber-500/70">Milestones</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span><span className="text-xs uppercase tracking-widest text-cyan-500/70">Docs Rate</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span><span className="text-xs uppercase tracking-widest text-gray-500">Weeks Left</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500">Total Memories</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70">Milestones</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70">Docs Rate</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500">Weeks Left</span></div>
           </div>
           <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800">
             <h3 className="text-xl font-bold mb-6">Life Balance</h3>
@@ -546,9 +545,26 @@ function App() {
         </div>
       )}
 
-      {/* FLOATING ACTION BUTTON */}
+      {/* --- MOBILE BOTTOM NAVIGATION (New) --- */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#121212] border-t border-gray-800 p-2 pb-6 flex md:hidden justify-around z-50">
+         {['grid', 'timeline', 'stats'].map(v => (
+           <button 
+             key={v}
+             onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${view === v ? 'text-white' : 'text-gray-600'}`}
+           >
+             {/* Icons */}
+             {v === 'grid' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>}
+             {v === 'timeline' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>}
+             {v === 'stats' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>}
+             <span className="text-[10px] font-bold uppercase">{v}</span>
+           </button>
+         ))}
+      </div>
+
+      {/* FLOATING ACTION BUTTON (Grid View Only, Positioned above Bottom Nav on mobile) */}
       {view === 'grid' && (
-        <button onClick={jumpToNow} className="fixed bottom-8 right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today">
+        <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       )}
@@ -566,7 +582,7 @@ function App() {
       {/* SETTINGS MODAL */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-           <div className="bg-[#1E1E1E] rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+           <div className="bg-[#1E1E1E] rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
              <div className="p-6 border-b border-gray-800 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-white">Settings</h2>
                 <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
@@ -577,6 +593,7 @@ function App() {
                ))}
              </div>
              <div className="p-6 overflow-y-auto">
+               {/* ... (Existing Settings Content Same as Before) ... */}
                {settingsTab === 'categories' && (
                  <div className="space-y-6">
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
@@ -593,31 +610,27 @@ function App() {
                     <div className="border-t border-gray-800 pt-4">
                         <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Add New Category</h3>
                         <div className="flex gap-2 mb-3">
-                          <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 flex-1 outline-none focus:border-cyan-500" placeholder="Name (e.g. Gaming)" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
+                          <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 flex-1 outline-none focus:border-cyan-500" placeholder="Name" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
                           <select className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}>{Object.keys(PRESET_COLORS).map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select>
                         </div>
-                        <button onClick={addCategory} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD CATEGORY</button>
+                        <button onClick={addCategory} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD</button>
                     </div>
                  </div>
                )}
                {settingsTab === 'profile' && (
                  <div className="space-y-4">
-                   <div>
                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Date of Birth</label>
                      <input type="date" value={birthday} onChange={updateBirthday} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
                      <p className="text-xs text-gray-500 mt-2">Changing this will recalculate your entire life grid.</p>
-                   </div>
                  </div>
                )}
                {settingsTab === 'data' && (
                  <div className="space-y-6">
                    <div className="grid grid-cols-2 gap-4">
-                     <button onClick={exportData} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬇</span><span className="text-sm font-bold">Download Backup</span></button>
-                     <button onClick={() => fileInputRef.current.click()} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬆</span><span className="text-sm font-bold">Restore Backup</span></button>
+                     <button onClick={exportData} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬇</span><span className="text-sm font-bold">Backup</span></button>
+                     <button onClick={() => fileInputRef.current.click()} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬆</span><span className="text-sm font-bold">Restore</span></button>
                    </div>
                    <div className="border-t border-gray-800 pt-6">
-                     <h3 className="text-xs uppercase font-bold text-red-500 mb-2">Danger Zone</h3>
-                     <p className="text-xs text-gray-500 mb-4">This action cannot be undone. It will wipe all data from your browser.</p>
                      <button onClick={resetApp} className="w-full border border-red-900/50 text-red-500 hover:bg-red-900/20 font-bold py-3 rounded-lg transition-colors">RESET ALL DATA</button>
                    </div>
                  </div>
@@ -631,18 +644,18 @@ function App() {
       {/* MEMORY MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-[#1E1E1E] p-8 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="bg-[#1E1E1E] p-6 md:p-8 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl animate-in fade-in zoom-in duration-200 m-4">
             <div className="flex justify-between items-center mb-1">
-              <h2 className="text-2xl font-bold text-white">{selectedWeek === stats.weeksLived ? "Claim This Week" : (selectedWeek > stats.weeksLived ? "Set Future Goal" : "Edit Memory")}</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-white">{selectedWeek === stats.weeksLived ? "Claim This Week" : (selectedWeek > stats.weeksLived ? "Set Future Goal" : "Edit Memory")}</h2>
               <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title={selectedWeek > stats.weeksLived ? "Major Life Goal" : "Mark as Milestone"}>{isMilestone ? '⭐' : '☆'}</button>
             </div>
             <p className="text-xs uppercase tracking-widest font-bold text-gray-500 mb-4 flex items-center gap-2"><span className="text-cyan-500">{getDateFromWeekIndex(selectedWeek)}</span><span>•</span>{getEraForWeek(selectedWeek).name}</p>
             <textarea autoFocus className={`w-full bg-black/50 text-white p-4 rounded-lg border focus:outline-none mb-4 transition-colors h-24 resize-none ${isMilestone ? 'border-amber-400/50' : 'border-gray-700 focus:border-white'}`} value={tempIntention} onChange={(e) => setTempIntention(e.target.value)} placeholder={selectedWeek > stats.weeksLived ? "What do you want to achieve?" : "What happened?"} />
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
               {Object.entries(categories).map(([key, val]) => {
                 const styles = getCategoryStyle(key);
                 return (
-                  <button key={key} onClick={() => setSelectedCategory(key)} className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${selectedCategory === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700 hover:border-gray-500'}`}>{val.label}</button>
+                  <button key={key} onClick={() => setSelectedCategory(key)} className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all border ${selectedCategory === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700 hover:border-gray-500'}`}>{val.label}</button>
                 );
               })}
             </div>
