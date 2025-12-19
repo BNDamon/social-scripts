@@ -12,13 +12,11 @@ const GLOBAL_STYLES = `
     animation: burnIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
   }
 
-  /* 2. NEW: The "Crossed Out" Texture for past weeks */
+  /* 2. The "Crossed Out" Texture for past weeks */
   .crossed-out {
-    /* Creates a subtle X over the box using gradients. Very low performance cost. */
     background-image: 
       linear-gradient(to top left,  transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%),
       linear-gradient(to top right, transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%);
-    /* Makes the box feel matte and "spent" */
     opacity: 0.7;
     border-color: transparent !important;
   }
@@ -28,12 +26,10 @@ const GLOBAL_STYLES = `
     .landscape-hide { display: none !important; }
     .landscape-compact { padding-top: 4px !important; padding-bottom: 4px !important; gap: 8px !important; }
     .landscape-row { flex-direction: row !important; align-items: center; justify-content: space-between; }
-    .landscape-text-tiny { font-size: 0.75rem !important; }
   }
 `;
 
-// --- CONSTANTS: DIMMED NEON ERAS ---
-// Slightly increased opacity for better contrast with the cross-out texture
+// --- CONSTANTS ---
 const ERAS = [
   { name: 'Early Childhood', ageLimit: 5,  color: 'bg-cyan-600/30' },
   { name: 'School Age',      ageLimit: 18, color: 'bg-blue-600/30' },
@@ -69,17 +65,8 @@ const INITIAL_CATEGORIES = {
   default: { label: 'General', colorKey: 'slate' },
 };
 
-// --- OPTIMIZATION: Memoized WeekBox ---
-const WeekBox = React.memo(({ 
-  weekIndex, 
-  boxClass, 
-  opacityClass, 
-  animDelay,
-  onClick, 
-  onMouseEnter, 
-  onMouseLeave,
-  isCurrent 
-}) => {
+// --- COMPONENT: WeekBox (Memoized for Grid Performance) ---
+const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, onMouseEnter, onMouseLeave, isCurrent }) => {
   return (
     <div 
       className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
@@ -99,8 +86,127 @@ const WeekBox = React.memo(({
   );
 });
 
+// --- COMPONENT: MemoryModal (Isolated to prevent typing lag) ---
+const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, getDateStr, getEraName }) => {
+  // Local State
+  const [title, setTitle] = useState(initialData.title || '');
+  const [text, setText] = useState(initialData.text || ''); // Summary
+  const [rating, setRating] = useState(initialData.rating || 5);
+  const [image, setImage] = useState(initialData.image || '');
+  const [isMilestone, setIsMilestone] = useState(initialData.isMilestone || false);
+  const [category, setCategory] = useState(initialData.category || 'default');
+  const [logs, setLogs] = useState(initialData.logs || []); // Array of logs
+  
+  // New Log Inputs
+  const [newLogText, setNewLogText] = useState('');
+  const [newLogTag, setNewLogTag] = useState('');
+
+  const handleAddLog = () => {
+    if (!newLogText.trim()) return;
+    const newEntry = {
+      id: Date.now(),
+      text: newLogText,
+      tag: newLogTag || new Date().toLocaleDateString('en-US', { weekday: 'short' })
+    };
+    setLogs([...logs, newEntry]);
+    setNewLogText('');
+    setNewLogTag('');
+  };
+
+  const handleRemoveLog = (id) => {
+    setLogs(logs.filter(l => l.id !== id));
+  };
+
+  const handleSave = () => {
+    onSave({ title, text, rating, image, isMilestone, category, logs });
+  };
+
+  const getCategoryStyle = (catKey) => {
+    const cat = categories[catKey] || categories.default;
+    if (!cat) return PRESET_COLORS.slate;
+    const colorKey = cat.colorKey || 'slate'; 
+    return { ...PRESET_COLORS[colorKey], label: cat.label };
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+      <div className="bg-[#1E1E1E] border border-gray-800 shadow-2xl rounded-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
+        
+        {/* HEADER */}
+        <div className="p-6 border-b border-gray-800 bg-[#1E1E1E] z-10">
+          <div className="flex justify-between items-center mb-1">
+            <h2 className="text-xl font-bold text-white">{isCurrentWeek ? "Log This Week" : "Edit Memory"}</h2>
+            <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title="Milestone">{isMilestone ? '⭐' : '☆'}</button>
+          </div>
+          <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2">
+            <span className="text-cyan-500">{getDateStr}</span><span>•</span>{getEraName}
+          </p>
+        </div>
+
+        {/* CONTENT */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Section: Summary */}
+          <div className="space-y-4">
+            <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder="Headline (e.g. Promotion!)" value={title} onChange={(e) => setTitle(e.target.value)} />
+            
+            <div className="flex gap-2">
+               <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-500">RATING</span>
+                  <div className="flex items-center gap-2">
+                    <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                    <span className="text-yellow-500 text-xs font-bold">{rating}</span>
+                  </div>
+               </div>
+               <div className="flex-1 bg-black/30 p-2 rounded-lg border border-gray-800 overflow-x-auto no-scrollbar flex items-center">
+                  <div className="flex gap-2">
+                    {Object.entries(categories).map(([key, val]) => {
+                      const styles = getCategoryStyle(key);
+                      return (
+                        <button key={key} onClick={() => setCategory(key)} className={`flex-shrink-0 px-2 py-1 rounded text-[10px] font-bold transition-all border ${category === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700'}`}>{val.label}</button>
+                      );
+                    })}
+                  </div>
+               </div>
+            </div>
+
+            <textarea className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[80px] resize-none text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Weekly summary..." />
+            <input className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" placeholder="Image URL (https://...)" value={image} onChange={(e) => setImage(e.target.value)} />
+          </div>
+
+          {/* Section: Journal */}
+          <div className="border-t border-gray-800 pt-6">
+            <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Daily Journal</h3>
+            <div className="space-y-2 mb-4">
+              {logs.map(log => (
+                <div key={log.id} className="flex gap-3 bg-black/30 p-3 rounded border border-gray-800 group">
+                  <span className="text-[10px] font-bold text-cyan-500 bg-cyan-900/20 px-2 py-1 rounded h-fit uppercase">{log.tag}</span>
+                  <span className="text-sm text-gray-300 flex-1">{log.text}</span>
+                  <button onClick={() => handleRemoveLog(log.id)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">×</button>
+                </div>
+              ))}
+              {logs.length === 0 && <div className="text-center text-xs text-gray-700 py-2 italic">No daily logs yet.</div>}
+            </div>
+
+            <div className="flex gap-2">
+              <input className="w-20 bg-black/50 text-white text-xs p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none uppercase font-bold text-center" placeholder="DAY" value={newLogTag} onChange={(e) => setNewLogTag(e.target.value)} />
+              <input className="flex-1 bg-black/50 text-white text-sm p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none" placeholder="Add entry..." value={newLogText} onChange={(e) => setNewLogText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddLog()} />
+              <button onClick={handleAddLog} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700 text-lg">+</button>
+            </div>
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-4 border-t border-gray-800 bg-[#1E1E1E] flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
+          <button onClick={handleSave} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg hover:scale-[1.02] transition-transform ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE ENTRY</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN APP ---
 function App() {
-  // --- Lazy Initialization ---
   const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
   const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
   const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
@@ -110,18 +216,7 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
   const [selectedWeek, setSelectedWeek] = useState(null);
-  
-  // --- Animation State ---
   const [introMode, setIntroMode] = useState(false);
-
-  // --- NEW MEMORY FIELDS ---
-  const [tempIntention, setTempIntention] = useState('');
-  const [tempTitle, setTempTitle] = useState('');
-  const [tempRating, setTempRating] = useState(5);
-  const [tempImage, setTempImage] = useState('');
-  
-  const [isMilestone, setIsMilestone] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('default');
   
   const [rawSearch, setRawSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -132,28 +227,19 @@ function App() {
   
   const fileInputRef = useRef(null);
 
-  // Search Debounce
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(rawSearch);
-    }, 300);
+    const handler = setTimeout(() => { setDebouncedSearch(rawSearch); }, 300);
     return () => clearTimeout(handler);
   }, [rawSearch]);
 
-  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-        if (e.key === 'Escape') {
-          e.target.blur();
-          setShowModal(false);
-          setShowSettings(false);
-        }
+        if (e.key === 'Escape') { e.target.blur(); setShowModal(false); setShowSettings(false); }
         return;
       }
       switch(e.key.toLowerCase()) {
-        case 'k':
-        case '/': e.preventDefault(); document.querySelector('input[type="text"]')?.focus(); break;
+        case 'k': case '/': e.preventDefault(); document.querySelector('input[type="text"]')?.focus(); break;
         case 'escape': setShowModal(false); setShowSettings(false); setRawSearch(''); break;
         case 't': document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center' }); break;
         case 'g': setView('grid'); break;
@@ -165,16 +251,10 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // --- Notification Logic ---
   const requestNotificationPermission = useCallback(() => {
-    if (!("Notification" in window)) {
-      alert("This browser does not support desktop notifications");
-      return;
-    }
+    if (!("Notification" in window)) { alert("This browser does not support desktop notifications"); return; }
     Notification.requestPermission().then((permission) => {
-      if (permission === "granted") {
-        new Notification("Memento Mori", { body: "Notifications enabled!" });
-      }
+      if (permission === "granted") new Notification("Mementum", { body: "Notifications enabled!" });
     });
   }, []);
 
@@ -184,9 +264,8 @@ function App() {
       const now = new Date();
       const currentHours = String(now.getHours()).padStart(2, '0');
       const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-      const currentTime = `${currentHours}:${currentMinutes}`;
-      if (currentTime === reminderTime) {
-        new Notification("Memento Mori", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
+      if (`${currentHours}:${currentMinutes}` === reminderTime) {
+        new Notification("Mementum", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
       }
     }, 60000); 
     return () => clearInterval(checkTime);
@@ -212,10 +291,6 @@ function App() {
     return targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const getAgeFromWeekIndex = (weekIndex) => {
-    return Math.floor(weekIndex / 52);
-  };
-
   const getLifeStats = useMemo(() => {
     if (!birthday) return { weeksLived: 0, totalWeeks: 4680 };
     const birthDate = new Date(birthday);
@@ -227,34 +302,27 @@ function App() {
 
   const getEraForWeek = (weekIndex) => {
     const years = weekIndex / 52;
-    for (let era of ERAS) {
-      if (years < era.ageLimit) return era;
-    }
+    for (let era of ERAS) { if (years < era.ageLimit) return era; }
     return ERAS[ERAS.length - 1];
   };
 
   const stats = getLifeStats;
 
   const jumpToNow = useCallback(() => {
-    document.getElementById("current-week-box")?.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center',    // Keep vertical centering
-      inline: 'nearest'   // FIX: Don't shift the grid horizontally if not needed
-    });
+    document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   }, []);
 
   const onBoxClick = useCallback((weekIndex) => {
-    handleBoxClick(weekIndex); 
+    setSelectedWeek(weekIndex);
+    setShowModal(true);
     setTooltip(prev => ({ ...prev, show: false }));
-  }, [intentions, categories]);
+  }, []);
 
   const onBoxEnter = useCallback((e, weekIndex) => {
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
-
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
     const y = rect.top + window.scrollY + 15;
-    
     const entry = intentions[weekIndex];
     const isPast = weekIndex < stats.weeksLived;
     const isFuture = weekIndex > stats.weeksLived;
@@ -267,20 +335,15 @@ function App() {
     else if (isPast && entry) {
         const catKey = entry.category || 'default';
         const styles = getCategoryStyle(catKey);
-        const stars = entry.rating ? "★".repeat(entry.rating) : "";
         content = (
           <div className="text-left">
             <div className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex justify-between">
-              <span>{dateStr}</span>
-              <span className="text-yellow-500 text-xs">{entry.rating ? `${entry.rating}/10` : ''}</span>
+              <span>{dateStr}</span><span className="text-yellow-500 text-xs">{entry.rating ? `${entry.rating}/10` : ''}</span>
             </div>
-            <div className="font-bold text-sm mb-1 text-white">
-              {entry.title ? entry.title : (entry.isMilestone ? "⭐ Milestone" : styles.label)}
-            </div>
-            {entry.image && (
-              <div className="w-full h-20 bg-cover bg-center rounded mb-2 border border-white/10" style={{ backgroundImage: `url(${entry.image})` }}></div>
-            )}
+            <div className="font-bold text-sm mb-1 text-white">{entry.title ? entry.title : (entry.isMilestone ? "⭐ Milestone" : styles.label)}</div>
+            {entry.image && <div className="w-full h-20 bg-cover bg-center rounded mb-2 border border-white/10" style={{ backgroundImage: `url(${entry.image})` }}></div>}
             <div className="text-xs text-gray-400 max-w-[200px] leading-tight line-clamp-4">{entry.text}</div>
+            {entry.logs && entry.logs.length > 0 && <div className="mt-1 text-[10px] text-cyan-500 font-bold">+{entry.logs.length} entries</div>}
           </div>
         );
     } else if (isFuture && entry) {
@@ -294,16 +357,10 @@ function App() {
     } else {
         content = <div className="text-left"><div className="text-[10px] uppercase font-bold text-gray-600">{dateStr}</div><div className="text-xs text-gray-600">{era.name}</div></div>;
     }
-
-    setTooltip(prev => {
-      if (prev.show && prev.x === x && prev.y === y) return prev;
-      return { show: true, x, y, content };
-    });
+    setTooltip(prev => { if (prev.show && prev.x === x && prev.y === y) return prev; return { show: true, x, y, content }; });
   }, [intentions, categories, stats, getCategoryStyle]);
 
-  const onBoxLeave = useCallback(() => {
-    setTooltip(prev => ({ ...prev, show: false }));
-  }, []);
+  const onBoxLeave = useCallback(() => { setTooltip(prev => ({ ...prev, show: false })); }, []);
 
   const handleSaveBirthday = (e) => {
     e.preventDefault();
@@ -311,11 +368,8 @@ function App() {
     if (date) {
       localStorage.setItem('dob', date);
       setBirthday(date);
-      
-      // --- FIX: Force Grid & Trigger Intro Animation ---
       setView('grid'); 
       setIntroMode(true);
-      // Turn off intro mode after animation finishes
       setTimeout(() => setIntroMode(false), 4000); 
     }
   };
@@ -327,28 +381,28 @@ function App() {
   };
 
   const resetApp = () => {
-    if (confirm("⚠️ DANGER: This will permanently delete ALL your memories.\n\nAre you sure?")) {
-      localStorage.removeItem('dob');
-      localStorage.removeItem('intentions');
-      localStorage.removeItem('categories');
-      localStorage.removeItem('reminderTime');
-      setBirthday('');
-      setIntentions({});
-      setCategories(INITIAL_CATEGORIES);
-      setShowSettings(false);
+    if (confirm("DANGER: This will permanently delete ALL your memories.\n\nAre you sure?")) {
+      localStorage.removeItem('dob'); localStorage.removeItem('intentions'); localStorage.removeItem('categories'); localStorage.removeItem('reminderTime');
+      setBirthday(''); setIntentions({}); setCategories(INITIAL_CATEGORIES); setShowSettings(false);
     }
+  };
+
+  const saveIntention = (modalData) => {
+    if (selectedWeek === null) return;
+    const newIntentions = { ...intentions };
+    const isEmpty = !modalData.text.trim() && !modalData.title.trim() && !modalData.image.trim() && modalData.logs.length === 0;
+    if (isEmpty) { delete newIntentions[selectedWeek]; } else { newIntentions[selectedWeek] = modalData; }
+    setIntentions(newIntentions);
+    localStorage.setItem('intentions', JSON.stringify(newIntentions));
+    setShowModal(false);
   };
 
   const exportData = () => {
     const data = { dob: birthday, intentions: intentions, categories: categories, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `memento-mori-backup.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const link = document.createElement("a"); link.href = url; link.download = `memento-mori-backup.json`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const importData = (event) => {
@@ -360,90 +414,27 @@ function App() {
         const data = JSON.parse(e.target.result);
         if (data.dob && data.intentions) {
           if (confirm("Overwrite current grid?")) {
-            localStorage.setItem('dob', data.dob);
-            localStorage.setItem('intentions', JSON.stringify(data.intentions));
-            const cats = data.categories || INITIAL_CATEGORIES;
-            localStorage.setItem('categories', JSON.stringify(cats));
-            setBirthday(data.dob);
-            setIntentions(data.intentions);
-            setCategories(cats);
-            alert("Restored.");
+            localStorage.setItem('dob', data.dob); localStorage.setItem('intentions', JSON.stringify(data.intentions));
+            const cats = data.categories || INITIAL_CATEGORIES; localStorage.setItem('categories', JSON.stringify(cats));
+            setBirthday(data.dob); setIntentions(data.intentions); setCategories(cats); alert("Restored.");
           }
         } else { alert("Invalid file."); }
       } catch (err) { alert("Error reading file."); }
     };
-    reader.readAsText(file);
-    event.target.value = null;
-  };
-
-  const handleBoxClick = (weekIndex) => {
-    const savedData = intentions[weekIndex];
-    let text = '';
-    let title = '';
-    let rating = 5;
-    let image = '';
-    let milestone = false;
-    let category = 'default';
-
-    if (savedData) {
-      if (typeof savedData === 'string') {
-        text = savedData;
-      } else {
-        text = savedData.text || '';
-        title = savedData.title || '';
-        rating = savedData.rating || 5;
-        image = savedData.image || '';
-        milestone = savedData.isMilestone || false;
-        category = savedData.category || 'default';
-        if (!categories[category]) category = 'default';
-      }
-    }
-
-    setSelectedWeek(weekIndex);
-    setTempIntention(text);
-    setTempTitle(title);
-    setTempRating(rating);
-    setTempImage(image);
-    setIsMilestone(milestone);
-    setSelectedCategory(category);
-    setShowModal(true);
-  };
-
-  const saveIntention = () => {
-    if (selectedWeek === null) return;
-    const newIntentions = { ...intentions };
-    if (tempIntention.trim() === "" && tempTitle.trim() === "" && tempImage.trim() === "") {
-      delete newIntentions[selectedWeek];
-    } else {
-      newIntentions[selectedWeek] = { 
-        text: tempIntention, 
-        title: tempTitle,
-        rating: tempRating,
-        image: tempImage,
-        isMilestone: isMilestone, 
-        category: selectedCategory 
-      };
-    }
-    setIntentions(newIntentions);
-    localStorage.setItem('intentions', JSON.stringify(newIntentions));
-    setShowModal(false);
+    reader.readAsText(file); event.target.value = null;
   };
 
   const addCategory = () => {
     if (!newCatName.trim()) return;
     const id = newCatName.toLowerCase().replace(/\s+/g, '_');
     const newCats = { ...categories, [id]: { label: newCatName, colorKey: newCatColor } };
-    setCategories(newCats);
-    localStorage.setItem('categories', JSON.stringify(newCats));
-    setNewCatName('');
+    setCategories(newCats); localStorage.setItem('categories', JSON.stringify(newCats)); setNewCatName('');
   };
 
   const deleteCategory = (key) => {
     if (key === 'default') return;
-    const newCats = { ...categories };
-    delete newCats[key];
-    setCategories(newCats);
-    localStorage.setItem('categories', JSON.stringify(newCats));
+    const newCats = { ...categories }; delete newCats[key];
+    setCategories(newCats); localStorage.setItem('categories', JSON.stringify(newCats));
   };
 
   const doesMatchSearch = (entry) => {
@@ -454,7 +445,8 @@ function App() {
     const catKey = typeof entry === 'object' ? entry.category : 'default';
     const catLabel = categories[catKey]?.label || '';
     const lowerQuery = debouncedSearch.toLowerCase();
-    return text.toLowerCase().includes(lowerQuery) || title.toLowerCase().includes(lowerQuery) || catLabel.toLowerCase().includes(lowerQuery);
+    const logMatches = entry.logs ? entry.logs.some(l => l.text.toLowerCase().includes(lowerQuery)) : false;
+    return text.toLowerCase().includes(lowerQuery) || title.toLowerCase().includes(lowerQuery) || catLabel.toLowerCase().includes(lowerQuery) || logMatches;
   };
 
   const dashboardStats = useMemo(() => {
@@ -486,13 +478,13 @@ function App() {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
-        <div className="max-w-md w-full bg-[#1E1E1E] p-8 rounded-2xl border border-gray-800 shadow-2xl text-center">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">MEMENTO MORI</h1>
-          <p className="text-gray-500 mb-8">Your life in weeks.</p>
-          <form onSubmit={handleSaveBirthday} className="space-y-4">
-            <input type="date" name="dob" className="w-full bg-black/30 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-center text-xl" required />
-            <button className="w-full bg-cyan-500 text-black font-bold py-4 rounded-lg hover:bg-cyan-400">START COUNTING</button>
-            <div className="mt-4"><button type="button" onClick={() => fileInputRef.current.click()} className="text-xs text-gray-500 underline">Upload JSON</button></div>
+        <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUM</h1>
+          <p className="text-cyan-200/50 mb-8 font-medium tracking-wide">Your life in weeks.</p>
+          <form onSubmit={handleSaveBirthday} className="space-y-5">
+            <input type="date" name="dob" className="w-full bg-black/40 text-white p-4 rounded-xl border border-gray-800 transition-all duration-300 focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.2)] outline-none text-center text-xl placeholder-gray-600" required />
+            <button className="w-full bg-cyan-500 text-black font-black tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] hover:bg-cyan-400 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">START COUNTING</button>
+            <div className="mt-6"><button type="button" onClick={() => fileInputRef.current.click()} className="text-sm text-gray-500 hover:text-cyan-300 transition-colors underline-offset-4 hover:underline">Upload JSON</button></div>
           </form>
           <input type="file" ref={fileInputRef} onChange={importData} accept=".json" className="hidden" />
         </div>
@@ -504,76 +496,49 @@ function App() {
     <div className="min-h-screen bg-[#050505] overflow-x-hidden text-white flex flex-col items-center relative pb-24 md:pb-10">
       <style>{GLOBAL_STYLES}</style>
       
-      {/* HEADER */}
       <header className="w-full max-w-[1200px] flex flex-col gap-3 px-4 py-4 md:px-0 md:py-8 pb-2 border-b border-gray-800 bg-[#050505] sticky top-0 z-30 landscape-compact">
         <div className="flex flex-row justify-between items-end gap-4 landscape-row w-full">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">LIFE GRID</h1>
-            <p className="text-gray-500 text-xs md:text-sm mt-1">
-              <span className="text-white font-bold">{Object.keys(intentions).length}</span> Memories | <span className="text-white font-bold">{stats.weeksLived}</span> Weeks
-            </p>
+            <p className="text-gray-500 text-xs md:text-sm mt-1"><span className="text-white font-bold">{Object.keys(intentions).length}</span> Memories | <span className="text-white font-bold">{stats.weeksLived}</span> Weeks</p>
           </div>
-          
           <div className="flex gap-3 items-center flex-wrap justify-end">
             <input type="text" placeholder="Search..." value={rawSearch} onChange={(e) => setRawSearch(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2 w-28 md:w-32 focus:w-48 transition-all outline-none" />
-            
             <div className="bg-gray-800 p-1 rounded-lg hidden md:flex">
-              {['grid', 'timeline', 'stats'].map(v => (
-                 <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${view === v ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>{v}</button>
-              ))}
+              {['grid', 'timeline', 'stats'].map(v => <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${view === v ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>{v}</button>)}
             </div>
-
-            <button onClick={() => { setShowSettings(true); setSettingsTab('categories'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            </button>
+            <button onClick={() => { setShowSettings(true); setSettingsTab('categories'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
           </div>
         </div>
-        
-        {/* ERA & CATEGORY LEGEND (Restored Highlighting + Two Lines) */}
         {view === 'grid' && (
           <div className="w-full flex flex-col gap-2 md:gap-3 mt-1 landscape-hide">
-            
-            {/* ROW 1: ERAS (With Current Era Highlight) */}
             <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center">
               {ERAS.map(era => {
-                // Logic: Is this the era I am currently living in?
                 const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
-                
                 return (
-                  <div 
-                    key={era.name} 
-                    className={`flex items-center gap-2 flex-shrink-0 transition-all duration-300 ${isCurrentEra ? 'opacity-100 scale-105' : 'opacity-50'}`}
-                  >
+                  <div key={era.name} className={`flex items-center gap-2 flex-shrink-0 transition-all duration-300 ${isCurrentEra ? 'opacity-100 scale-105' : 'opacity-50'}`}>
                     <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
-                    <span className={`text-[10px] uppercase font-bold whitespace-nowrap ${isCurrentEra ? 'text-white' : 'text-gray-500'}`}>
-                      {era.name}
-                    </span>
+                    <span className={`text-[10px] uppercase font-bold whitespace-nowrap ${isCurrentEra ? 'text-white' : 'text-gray-500'}`}>{era.name}</span>
                   </div>
                 );
               })}
             </div>
-
-            {/* ROW 2: CATEGORIES (Separate Line) */}
             <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center border-t border-white/5 md:border-none pt-2 md:pt-0">
               {Object.entries(categories).filter(([k]) => k !== 'default').map(([key, val]) => {
                 const styles = getCategoryStyle(key);
                 return (
                   <div key={key} className="flex items-center gap-2 flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity">
-                    <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>
-                    <span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{val.label}</span>
+                    <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div><span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{val.label}</span>
                   </div>
                 );
               })}
             </div>
-            
           </div>
         )}
       </header>
 
-      {/* --- GRID VIEW (Scrollable Container) --- */}
       {view === 'grid' && (
         <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
-           {/* Fixed Width Container for 52-week rows */}
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
             {Array.from({ length: stats.totalWeeks }).map((_, i) => {
               const isPast = i < stats.weeksLived;
@@ -581,61 +546,34 @@ function App() {
               const isFuture = i > stats.weeksLived;
               const entry = intentions[i];
               const era = getEraForWeek(i);
-              
               const isMatch = doesMatchSearch(entry);
               const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
-
-              // Calculate staggered animation delay for intro (Capped for performance)
               const animDelay = introMode && isPast ? `${Math.min(i * 2, 3000)}ms` : undefined;
 
-              // Base Box Style
               let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
-              
               if (isPast) {
                 if (entry) {
-                  // MEMORY (Filled): Keep interactive glow
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
                   if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_20px_rgba(251,191,36,1)] z-20 animate-pulse cursor-pointer hover:scale-150";
-                } else {
-                   // EMPTY PAST: Crossed out and static (heavy feeling)
-                   boxClass += ` ${era.color} crossed-out cursor-pointer hover:brightness-125`;
-                }
-              } else if (isCurrent) {
-                // CURRENT: Bright White Pulse
-                boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
+                } else { boxClass += ` ${era.color} crossed-out cursor-pointer hover:brightness-125`; }
+              } else if (isCurrent) { boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
               } else if (isFuture) {
-                // FUTURE: Static, empty outline.
                 boxClass += " bg-transparent border border-white/5 hover:border-white/20 cursor-pointer"; 
                 if (entry) {
-                  // FUTURE GOAL
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `bg-transparent border-2 ${styles.border} shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10 hover:scale-125`; 
                   if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)] hover:scale-125";
                 }
               }
-
-              return (
-                <WeekBox 
-                  key={i} 
-                  weekIndex={i}
-                  boxClass={boxClass}
-                  opacityClass={opacityClass}
-                  animDelay={animDelay}
-                  onClick={onBoxClick}
-                  onMouseEnter={onBoxEnter}
-                  onMouseLeave={onBoxLeave}
-                  isCurrent={isCurrent}
-                />
-              );
+              return ( <WeekBox key={i} weekIndex={i} boxClass={boxClass} opacityClass={opacityClass} animDelay={animDelay} onClick={onBoxClick} onMouseEnter={onBoxEnter} onMouseLeave={onBoxLeave} isCurrent={isCurrent} /> );
             })}
           </div>
         </div>
       )}
 
-      {/* --- TIMELINE VIEW --- */}
       {view === 'timeline' && (
         <div className="max-w-2xl w-full flex flex-col gap-6 px-4 md:px-0 mt-12 md:mt-20">
           {getSortedEntries().length === 0 ? (
@@ -645,21 +583,20 @@ function App() {
               const styles = getCategoryStyle(entry.category || 'default');
               const isFuture = entry.weekIndex > stats.weeksLived;
               return (
-                <div key={entry.weekIndex} className={`bg-[#1E1E1E] border-l-4 p-6 rounded-r-lg shadow-lg cursor-pointer hover:bg-[#252525] transition-colors group relative ${isFuture ? 'opacity-70 border-dashed' : ''}`} style={{ borderLeftColor: entry.isMilestone ? '#fbbf24' : (isFuture ? 'gray' : undefined) }} onClick={() => handleBoxClick(entry.weekIndex)}>
+                <div key={entry.weekIndex} className={`bg-[#1E1E1E] border-l-4 p-6 rounded-r-lg shadow-lg cursor-pointer hover:bg-[#252525] transition-colors group relative ${isFuture ? 'opacity-70 border-dashed' : ''}`} style={{ borderLeftColor: entry.isMilestone ? '#fbbf24' : (isFuture ? 'gray' : undefined) }} onClick={() => onBoxClick(entry.weekIndex)}>
                   {!entry.isMilestone && <div className={`absolute left-0 top-0 bottom-0 w-1 ${styles.bg} -ml-[4px]`}></div>}
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2 items-center">
                       <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${isFuture ? 'bg-gray-800 text-gray-400' : `${styles.text} bg-gray-900`}`}>{isFuture ? 'Target' : styles.label}</span>
                       {entry.isMilestone && <span className="text-amber-400 text-lg">⭐</span>}
-                      {/* Show Rating in Timeline */}
                       {entry.rating && <span className="text-yellow-500 text-xs ml-2">★ {entry.rating}</span>}
                     </div>
                     <span className="text-xs text-gray-500 font-mono">{getDateFromWeekIndex(entry.weekIndex)}</span>
                   </div>
-                  {/* Show Title */}
                   {entry.title && <h3 className="text-white font-bold mb-2 text-lg">{entry.title}</h3>}
                   <p className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap">{entry.text}</p>
                   {entry.image && <img src={entry.image} alt="Memory" className="mt-4 rounded border border-gray-700 max-h-60 object-cover" />}
+                  {entry.logs && entry.logs.length > 0 && <div className="mt-4 pt-4 border-t border-gray-800 space-y-1">{entry.logs.map(l => <div key={l.id} className="text-xs text-gray-400"><span className="text-cyan-600 font-bold uppercase mr-2">{l.tag}</span>{l.text}</div>)}</div>}
                 </div>
               );
             })
@@ -667,25 +604,20 @@ function App() {
         </div>
       )}
 
-      {/* --- STATS VIEW (Centered) --- */}
       {view === 'stats' && (
         <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 pb-20 animate-in fade-in duration-500 mt-12 md:mt-20">
            <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
              <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
-                <span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span>
-                <span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Total Memories</span>
+                <span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Total Memories</span>
              </div>
              <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
-                <span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span>
-                <span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70 text-center">Milestones</span>
+                <span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70 text-center">Milestones</span>
              </div>
              <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
-                <span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span>
-                <span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70 text-center">Docs Rate</span>
+                <span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70 text-center">Docs Rate</span>
              </div>
              <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
-                <span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span>
-                <span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Weeks Left</span>
+                <span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Weeks Left</span>
              </div>
           </div>
           <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800">
@@ -708,14 +640,9 @@ function App() {
         </div>
       )}
 
-      {/* --- MOBILE BOTTOM NAVIGATION --- */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-gray-800 p-2 pb-6 flex md:hidden justify-around z-50">
          {['grid', 'timeline', 'stats'].map(v => (
-           <button 
-             key={v}
-             onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-             className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${view === v ? 'text-white' : 'text-gray-600'}`}
-           >
+           <button key={v} onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${view === v ? 'text-white' : 'text-gray-600'}`}>
              {v === 'grid' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>}
              {v === 'timeline' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>}
              {v === 'stats' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>}
@@ -724,36 +651,17 @@ function App() {
          ))}
       </div>
 
-      {/* FLOATING ACTION BUTTON */}
       {view === 'grid' && (
-        <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
+        <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></button>
       )}
 
-      {/* --- CUSTOM TOOLTIP --- */}
-      {tooltip.show && (
-        <div 
-          className="fixed z-50 bg-[#222] border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none backdrop-blur-md animate-in fade-in duration-75 max-w-xs"
-          style={{ top: tooltip.y, left: tooltip.x }}
-        >
-          {tooltip.content}
-        </div>
-      )}
+      {tooltip.show && <div className="fixed z-50 bg-[#222] border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none backdrop-blur-md animate-in fade-in duration-75 max-w-xs" style={{ top: tooltip.y, left: tooltip.x }}>{tooltip.content}</div>}
 
-      {/* SETTINGS MODAL */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
            <div className="bg-[#1E1E1E] rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-             <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white">Settings</h2>
-                <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
-             </div>
-             <div className="flex border-b border-gray-800">
-               {['categories', 'profile', 'data'].map(tab => (
-                 <button key={tab} onClick={() => setSettingsTab(tab)} className={`flex-1 py-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${settingsTab === tab ? 'text-cyan-500 border-cyan-500 bg-gray-900/50' : 'text-gray-500 border-transparent hover:text-white hover:bg-gray-900/30'}`}>{tab}</button>
-               ))}
-             </div>
+             <div className="p-6 border-b border-gray-800 flex justify-between items-center"><h2 className="text-xl font-bold text-white">Settings</h2><button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors">✕</button></div>
+             <div className="flex border-b border-gray-800">{['categories', 'profile', 'data'].map(tab => <button key={tab} onClick={() => setSettingsTab(tab)} className={`flex-1 py-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${settingsTab === tab ? 'text-cyan-500 border-cyan-500 bg-gray-900/50' : 'text-gray-500 border-transparent hover:text-white hover:bg-gray-900/30'}`}>{tab}</button>)}</div>
              <div className="p-6 overflow-y-auto">
                {settingsTab === 'categories' && (
                  <div className="space-y-6">
@@ -782,7 +690,6 @@ function App() {
                  <div className="space-y-4">
                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Date of Birth</label>
                      <input type="date" value={birthday} onChange={updateBirthday} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
-                     
                      <div className="pt-4 border-t border-gray-800">
                       <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Daily Reminder</label>
                       <div className="flex gap-2">
@@ -809,73 +716,17 @@ function App() {
         </div>
       )}
 
-      {/* MEMORY MODAL (NEW FIELDS) */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-[#1E1E1E] p-6 md:p-8 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl animate-in fade-in zoom-in duration-200 m-4 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
-            
-            {/* Header */}
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl md:text-2xl font-bold text-white">{selectedWeek === stats.weeksLived ? "Log This Week" : (selectedWeek > stats.weeksLived ? "Set Future Goal" : "Edit Memory")}</h2>
-              <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title="Milestone">{isMilestone ? '⭐' : '☆'}</button>
-            </div>
-            <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2"><span className="text-cyan-500">{getDateFromWeekIndex(selectedWeek)}</span><span>•</span>{getEraForWeek(selectedWeek).name}</p>
-            
-            {/* Title Input */}
-            <input 
-              className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" 
-              placeholder="Headline (e.g. Promotion!)" 
-              value={tempTitle}
-              onChange={(e) => setTempTitle(e.target.value)}
-            />
-
-            {/* Rating Slider */}
-            <div className="bg-black/30 p-3 rounded-lg border border-gray-800">
-               <div className="flex justify-between text-xs uppercase font-bold text-gray-500 mb-2">
-                 <span>Rating</span>
-                 <span className="text-yellow-500">{tempRating}/10</span>
-               </div>
-               <input 
-                 type="range" min="1" max="10" 
-                 value={tempRating} 
-                 onChange={(e) => setTempRating(parseInt(e.target.value))}
-                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-               />
-            </div>
-
-            {/* Main Text Note */}
-            <textarea 
-              className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[100px] resize-none" 
-              value={tempIntention} 
-              onChange={(e) => setTempIntention(e.target.value)} 
-              placeholder="Write your story here..."
-            />
-            
-            {/* Image URL Input */}
-            <input 
-              className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" 
-              placeholder="Image URL (https://...)" 
-              value={tempImage}
-              onChange={(e) => setTempImage(e.target.value)}
-            />
-
-            {/* Category Selector */}
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-              {Object.entries(categories).map(([key, val]) => {
-                const styles = getCategoryStyle(key);
-                return (
-                  <button key={key} onClick={() => setSelectedCategory(key)} className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all border ${selectedCategory === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700 hover:border-gray-500'}`}>{val.label}</button>
-                );
-              })}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3 mt-2">
-              <button onClick={() => setShowModal(false)} className="flex-1 py-3 text-gray-400 hover:text-white">Cancel</button>
-              <button onClick={saveIntention} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE</button>
-            </div>
-          </div>
-        </div>
+      {showModal && selectedWeek !== null && (
+        <MemoryModal 
+          weekIndex={selectedWeek}
+          initialData={intentions[selectedWeek] || {}}
+          categories={categories}
+          onClose={() => setShowModal(false)}
+          onSave={saveIntention}
+          isCurrentWeek={selectedWeek === stats.weeksLived}
+          getDateStr={getDateFromWeekIndex(selectedWeek)}
+          getEraName={getEraForWeek(selectedWeek).name}
+        />
       )}
     </div>
   );
