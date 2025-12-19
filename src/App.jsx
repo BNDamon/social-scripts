@@ -1,5 +1,6 @@
 // src/App.jsx
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 // --- STYLES: Custom Animations & Textures ---
 const GLOBAL_STYLES = `
@@ -205,15 +206,15 @@ function App() {
   const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
   const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
   const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
-  const [reminderTime, setReminderTime] = useState(() => localStorage.getItem('reminderTime') || '');
-
+  
+  // NOTE: Removed 'reminderTime' since we use Native Schedule now
   const [view, setView] = useState('grid');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [introMode, setIntroMode] = useState(false);
   
-  // --- NEW: SELECTION / PREVIEW STATE ---
+  // --- SELECTION / PREVIEW STATE ---
   const [previewWeek, setPreviewWeek] = useState(null);
 
   const [rawSearch, setRawSearch] = useState('');
@@ -224,6 +225,22 @@ function App() {
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
   
   const fileInputRef = useRef(null);
+
+  // --- 1. HEARTBEAT: Auto-Update Grid when Day Changes ---
+  useEffect(() => {
+    const checkDate = () => {
+      const now = new Date();
+      const todayStr = now.toDateString();
+      const lastRun = localStorage.getItem('lastRunDate');
+      
+      if (lastRun !== todayStr) {
+        localStorage.setItem('lastRunDate', todayStr);
+        window.location.reload(); 
+      }
+    };
+    const interval = setInterval(checkDate, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => { setDebouncedSearch(rawSearch); }, 300);
@@ -249,30 +266,33 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const requestNotificationPermission = useCallback(() => {
-    if (!("Notification" in window)) { alert("This browser does not support desktop notifications"); return; }
-    Notification.requestPermission().then((permission) => {
-      if (permission === "granted") new Notification("mementus", { body: "Notifications enabled!" });
+  // --- 2. CAPACITOR NOTIFICATIONS ---
+  const scheduleNotification = async () => {
+    // A. Request Permissions
+    const perm = await LocalNotifications.requestPermissions();
+    if (perm.display !== 'granted') return;
+
+    // B. Clear old notifications
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length > 0) {
+      await LocalNotifications.cancel(pending);
+    }
+
+    // C. Schedule for "Every Friday at 8:00 PM"
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          title: "Mementus",
+          body: "Time to log your week.",
+          id: 1,
+          schedule: { 
+            on: { weekday: 6, hour: 20, minute: 0 }, // 6 = Friday
+            allowWhileIdle: true 
+          },
+        }
+      ]
     });
-  }, []);
-
-  useEffect(() => {
-    if (!reminderTime || Notification.permission !== "granted") return;
-    const checkTime = setInterval(() => {
-      const now = new Date();
-      const currentHours = String(now.getHours()).padStart(2, '0');
-      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-      if (`${currentHours}:${currentMinutes}` === reminderTime) {
-        new Notification("mementus", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
-      }
-    }, 60000); 
-    return () => clearInterval(checkTime);
-  }, [reminderTime]);
-
-  const handleTimeChange = (e) => {
-    setReminderTime(e.target.value);
-    localStorage.setItem('reminderTime', e.target.value);
-    if (Notification.permission === 'default') requestNotificationPermission();
+    alert("Reminder enabled: Fridays at 8 PM.");
   };
 
   const getCategoryStyle = useCallback((catKey) => {
@@ -312,13 +332,13 @@ function App() {
     document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   }, []);
 
-  // --- NEW INTERACTION LOGIC (Mobile Friendly) ---
+  // --- 3. INTERACTION LOGIC (Mobile Friendly) ---
   const handleBoxClick = useCallback((weekIndex) => {
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
-      setPreviewWeek(weekIndex); // Just highlight first
+      setPreviewWeek(weekIndex); // Mobile: Highlight First
     } else {
-      openModal(weekIndex); // Desktop opens immediately
+      openModal(weekIndex); // Desktop: Open Immediately
     }
   }, []);
 
@@ -502,7 +522,7 @@ function App() {
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">Mementus</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUS</h1>
           <p className="text-cyan-200/50 mb-8 font-medium tracking-wide">Your life in weeks.</p>
           <form onSubmit={handleSaveBirthday} className="space-y-5">
             <input type="date" name="dob" className="w-full bg-black/40 text-white p-4 rounded-xl border border-gray-800 transition-all duration-300 focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.2)] outline-none text-center text-xl placeholder-gray-600" required />
@@ -561,7 +581,7 @@ function App() {
       </header>
 
       {view === 'grid' && (
-        <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
+        <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y">
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
             {Array.from({ length: stats.totalWeeks }).map((_, i) => {
               const isPast = i < stats.weeksLived;
@@ -746,11 +766,10 @@ function App() {
                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Date of Birth</label>
                      <input type="date" value={birthday} onChange={updateBirthday} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
                      <div className="pt-4 border-t border-gray-800">
-                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Daily Reminder</label>
-                      <div className="flex gap-2">
-                        <input type="time" value={reminderTime} onChange={handleTimeChange} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
-                        <button onClick={requestNotificationPermission} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700" title="Test Permissions">🔔</button>
-                      </div>
+                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Weekly Reminder</label>
+                      <button onClick={scheduleNotification} className="w-full bg-gray-800 hover:bg-gray-700 text-white p-4 rounded-lg border border-gray-700 flex items-center justify-center gap-3 transition-all active:scale-95">
+                        <span>🔔</span><span className="text-sm font-bold">Enable Friday 8PM Reminder</span>
+                      </button>
                      </div>
                  </div>
                )}
