@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: Set global background to avoid white flashes */
+body {
+  background-color: #121212;
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif; /* Assumes you still have Inter linked in index.html */
+}
+
+/* Custom Scrollbar (Optional - makes it look cleaner) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #121212; 
+}
+::-webkit-scrollbar-thumb {
+  background: #333; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555; 
+}
