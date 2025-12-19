@@ -74,7 +74,7 @@ const WeekBox = React.memo(({
 }) => {
   return (
     <div 
-      className={`w-[6px] h-[6px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
+      className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
       style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
       onMouseEnter={(e) => onMouseEnter(e, weekIndex)} 
@@ -493,7 +493,7 @@ function App() {
       <style>{GLOBAL_STYLES}</style>
       
       {/* HEADER */}
-      <header className="w-full max-w-[1200px] flex flex-col gap-6 px-4 py-4 md:px-0 md:py-8 pb-4 border-b border-gray-800 bg-[#050505] sticky top-0 z-30">
+      <header className="w-full max-w-[1200px] flex flex-col gap-3 px-4 py-4 md:px-0 md:py-8 pb-2 border-b border-gray-800 bg-[#050505] sticky top-0 z-30">
         <div className="flex flex-row justify-between items-end gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">LIFE GRID</h1>
@@ -517,40 +517,30 @@ function App() {
           </div>
         </div>
         
-        {/* ERA & CATEGORY LEGEND (Updated) */}
+        {/* ERA & CATEGORY LEGEND (Mobile Optimized) */}
         {view === 'grid' && (
-          <div className="w-full flex flex-col gap-3 items-center mt-2">
+          <div className="w-full flex flex-nowrap gap-4 overflow-x-auto no-scrollbar items-center py-2 px-1">
+            {/* Eras */}
+            {ERAS.map(era => (
+              <div key={era.name} className="flex items-center gap-2 flex-shrink-0">
+                <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
+                <span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{era.name}</span>
+              </div>
+            ))}
             
-            {/* LINE 1: ERAS (Current Era Highlighted) */}
-            <div className="flex flex-wrap justify-center gap-4 text-[10px] uppercase tracking-wider font-bold">
-              {ERAS.map(era => {
-                // Check if this is the user's current era
-                const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
-                return (
-                  <div 
-                    key={era.name} 
-                    className={`flex items-center gap-2 transition-all duration-300 ${isCurrentEra ? 'opacity-100 text-white scale-110' : 'opacity-40 text-white-600'}`}
-                  >
-                    <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
-                    {era.name}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* LINE 2: CATEGORIES (New Line) */}
-            <div className="flex flex-wrap justify-center gap-4 text-[10px] uppercase tracking-wider font-bold">
-              {Object.entries(categories).map(([key, val]) => {
-                const styles = getCategoryStyle(key);
-                return (
-                  <div key={key} className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
-                    <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>
-                    <span className="text-gray-400">{val.label}</span>
-                  </div>
-                );
-              })}
-            </div>
+            {/* Divider */}
+            <div className="w-px h-4 bg-gray-800 flex-shrink-0 mx-2"></div>
             
+            {/* Categories */}
+            {Object.entries(categories).filter(([k]) => k !== 'default').map(([key, val]) => {
+              const styles = getCategoryStyle(key);
+              return (
+                <div key={key} className="flex items-center gap-2 flex-shrink-0">
+                  <div className={`w-3 h-3 ${styles.bg} rounded-full`}></div>
+                  <span className="text-[10px] uppercase font-bold text-gray-500 whitespace-nowrap">{val.label}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </header>
