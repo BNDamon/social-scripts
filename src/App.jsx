@@ -1,36 +1,38 @@
 // src/App.jsx
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 
-// --- CONSTANTS ---
+// --- CONSTANTS: DIMMED NEON ERAS ---
+// Low opacity fill (20%) so they don't overwhelm the eye.
+// Colored borders maintain the distinct "Era" feel.
 const ERAS = [
-  { name: 'Early Childhood', ageLimit: 5,  color: 'bg-zinc-800' },
-  { name: 'School Age',      ageLimit: 18, color: 'bg-slate-800' },
-  { name: 'Early Adulthood', ageLimit: 25, color: 'bg-stone-800' },
-  { name: 'The Building Years', ageLimit: 35, color: 'bg-neutral-800' },
-  { name: 'Mid-Life',        ageLimit: 50, color: 'bg-zinc-800' },
-  { name: 'Later Life',      ageLimit: 65, color: 'bg-slate-800' },
-  { name: 'Golden Years',    ageLimit: 90, color: 'bg-stone-800' },
+  { name: 'Early Childhood', ageLimit: 5,  color: 'bg-cyan-500/20 border border-cyan-500/50 shadow-[0_0_2px_rgba(6,182,212,0.3)]' },
+  { name: 'School Age',      ageLimit: 18, color: 'bg-blue-500/20 border border-blue-500/50 shadow-[0_0_2px_rgba(59,130,246,0.3)]' },
+  { name: 'Early Adulthood', ageLimit: 25, color: 'bg-indigo-500/20 border border-indigo-500/50 shadow-[0_0_2px_rgba(99,102,241,0.3)]' },
+  { name: 'The Building Years', ageLimit: 35, color: 'bg-violet-500/20 border border-violet-500/50 shadow-[0_0_2px_rgba(139,92,246,0.3)]' },
+  { name: 'Mid-Life',        ageLimit: 50, color: 'bg-fuchsia-500/20 border border-fuchsia-500/50 shadow-[0_0_2px_rgba(217,70,239,0.3)]' },
+  { name: 'Later Life',      ageLimit: 65, color: 'bg-pink-500/20 border border-pink-500/50 shadow-[0_0_2px_rgba(236,72,153,0.3)]' },
+  { name: 'Golden Years',    ageLimit: 90, color: 'bg-rose-500/20 border border-rose-500/50 shadow-[0_0_2px_rgba(244,63,94,0.3)]' },
 ];
 
 const PRESET_COLORS = {
-  slate:   { bg: 'bg-slate-600',   text: 'text-slate-500',   border: 'border-slate-500', shadow: 'shadow-slate-500/40' },
-  red:     { bg: 'bg-red-600',     text: 'text-red-500',     border: 'border-red-500',   shadow: 'shadow-red-500/40' },
-  orange:  { bg: 'bg-orange-500',  text: 'text-orange-500',  border: 'border-orange-500', shadow: 'shadow-orange-500/40' },
-  amber:   { bg: 'bg-amber-500',   text: 'text-amber-500',   border: 'border-amber-500', shadow: 'shadow-amber-500/40' },
-  yellow:  { bg: 'bg-yellow-500',  text: 'text-yellow-500',  border: 'border-yellow-500', shadow: 'shadow-yellow-500/40' },
-  lime:    { bg: 'bg-lime-600',    text: 'text-lime-500',    border: 'border-lime-500',  shadow: 'shadow-lime-500/40' },
-  green:   { bg: 'bg-green-600',   text: 'text-green-500',   border: 'border-green-500', shadow: 'shadow-green-500/40' },
-  emerald: { bg: 'bg-emerald-600', text: 'text-emerald-500', border: 'border-emerald-500', shadow: 'shadow-emerald-500/40' },
-  teal:    { bg: 'bg-teal-600',    text: 'text-teal-500',    border: 'border-teal-500',  shadow: 'shadow-teal-500/40' },
-  cyan:    { bg: 'bg-cyan-600',    text: 'text-cyan-500',    border: 'border-cyan-500',  shadow: 'shadow-cyan-500/40' },
-  sky:     { bg: 'bg-sky-600',     text: 'text-sky-500',     border: 'border-sky-500',   shadow: 'shadow-sky-500/40' },
-  blue:    { bg: 'bg-blue-600',    text: 'text-blue-500',    border: 'border-blue-500',  shadow: 'shadow-blue-500/40' },
-  indigo:  { bg: 'bg-indigo-600',  text: 'text-indigo-500',  border: 'border-indigo-500', shadow: 'shadow-indigo-500/40' },
-  violet:  { bg: 'bg-violet-600',  text: 'text-violet-500',  border: 'border-violet-500', shadow: 'shadow-violet-500/40' },
-  purple:  { bg: 'bg-purple-600',  text: 'text-purple-500',  border: 'border-purple-500', shadow: 'shadow-purple-500/40' },
-  fuchsia: { bg: 'bg-fuchsia-600', text: 'text-fuchsia-500', border: 'border-fuchsia-500', shadow: 'shadow-fuchsia-500/40' },
-  pink:    { bg: 'bg-pink-600',    text: 'text-pink-500',    border: 'border-pink-500',  shadow: 'shadow-pink-500/40' },
-  rose:    { bg: 'bg-rose-600',    text: 'text-rose-500',    border: 'border-rose-500',  shadow: 'shadow-rose-500/40' },
+  slate:   { bg: 'bg-slate-500',   text: 'text-slate-500',   border: 'border-slate-500', shadow: 'shadow-slate-500/50' },
+  red:     { bg: 'bg-red-500',     text: 'text-red-500',     border: 'border-red-500',   shadow: 'shadow-red-500/50' },
+  orange:  { bg: 'bg-orange-500',  text: 'text-orange-500',  border: 'border-orange-500', shadow: 'shadow-orange-500/50' },
+  amber:   { bg: 'bg-amber-500',   text: 'text-amber-500',   border: 'border-amber-500', shadow: 'shadow-amber-500/50' },
+  yellow:  { bg: 'bg-yellow-500',  text: 'text-yellow-500',  border: 'border-yellow-500', shadow: 'shadow-yellow-500/50' },
+  lime:    { bg: 'bg-lime-500',    text: 'text-lime-500',    border: 'border-lime-500',  shadow: 'shadow-lime-500/50' },
+  green:   { bg: 'bg-green-500',   text: 'text-green-500',   border: 'border-green-500', shadow: 'shadow-green-500/50' },
+  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500', shadow: 'shadow-emerald-500/50' },
+  teal:    { bg: 'bg-teal-500',    text: 'text-teal-500',    border: 'border-teal-500',  shadow: 'shadow-teal-500/50' },
+  cyan:    { bg: 'bg-cyan-500',    text: 'text-cyan-500',    border: 'border-cyan-500',  shadow: 'shadow-cyan-500/50' },
+  sky:     { bg: 'bg-sky-500',     text: 'text-sky-500',     border: 'border-sky-500',   shadow: 'shadow-sky-500/50' },
+  blue:    { bg: 'bg-blue-500',    text: 'text-blue-500',    border: 'border-blue-500',  shadow: 'shadow-blue-500/50' },
+  indigo:  { bg: 'bg-indigo-500',  text: 'text-indigo-500',  border: 'border-indigo-500', shadow: 'shadow-indigo-500/50' },
+  violet:  { bg: 'bg-violet-500',  text: 'text-violet-500',  border: 'border-violet-500', shadow: 'shadow-violet-500/50' },
+  purple:  { bg: 'bg-purple-500',  text: 'text-purple-500',  border: 'border-purple-500', shadow: 'shadow-purple-500/50' },
+  fuchsia: { bg: 'bg-fuchsia-500', text: 'text-fuchsia-500', border: 'border-fuchsia-500', shadow: 'shadow-fuchsia-500/50' },
+  pink:    { bg: 'bg-pink-500',    text: 'text-pink-500',    border: 'border-pink-500',  shadow: 'shadow-pink-500/50' },
+  rose:    { bg: 'bg-rose-500',    text: 'text-rose-500',    border: 'border-rose-500',  shadow: 'shadow-rose-500/50' },
 };
 
 const DEFAULT_CATEGORIES = {
@@ -53,7 +55,7 @@ const WeekBox = React.memo(({
 }) => {
   return (
     <div 
-      className={`w-[6px] h-[6px] md:w-[9px] md:h-[9px] rounded-[1px] ${boxClass} ${opacityClass} transition-all duration-300`} 
+      className={`w-[6px] h-[6px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass}`} 
       onClick={() => onClick(weekIndex)} 
       onMouseEnter={(e) => onMouseEnter(e, weekIndex)} 
       onMouseLeave={onMouseLeave}
@@ -69,6 +71,7 @@ const WeekBox = React.memo(({
 });
 
 function App() {
+  // --- Lazy Initialization ---
   const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
   const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
   const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(DEFAULT_CATEGORIES)));
@@ -91,6 +94,7 @@ function App() {
   const fileInputRef = useRef(null);
   const currentBoxRef = useRef(null);
 
+  // Search Debounce
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(rawSearch);
@@ -170,8 +174,7 @@ function App() {
   }, [intentions, categories]);
 
   const onBoxEnter = useCallback((e, weekIndex) => {
-    // Disable tooltips on touch devices (simple check)
-    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return; // No tooltips on touch
 
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
@@ -369,7 +372,7 @@ function App() {
 
   if (!birthday) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-[#1E1E1E] p-8 rounded-2xl border border-gray-800 shadow-2xl text-center">
           <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">MEMENTO MORI</h1>
           <p className="text-gray-500 mb-8">Your life in weeks.</p>
@@ -385,10 +388,10 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white flex flex-col items-center relative pb-24 md:pb-10">
+    <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center relative pb-24 md:pb-10">
       
-      {/* HEADER */}
-      <header className="w-full max-w-[1200px] flex flex-col gap-6 p-4 md:p-10 pb-4 border-b border-gray-800 bg-[#121212] sticky top-0 z-30">
+      {/* HEADER - UPDATED PADDING for alignment */}
+      <header className="w-full max-w-[1200px] flex flex-col gap-6 px-4 py-4 md:px-0 md:py-8 pb-4 border-b border-gray-800 bg-[#050505] sticky top-0 z-30">
         <div className="flex flex-row justify-between items-end gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">LIFE GRID</h1>
@@ -400,7 +403,6 @@ function App() {
           <div className="flex gap-3 items-center flex-wrap justify-end">
             <input type="text" placeholder="Search..." value={rawSearch} onChange={(e) => setRawSearch(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2 w-28 md:w-32 focus:w-48 transition-all outline-none" />
             
-            {/* Desktop View Toggles (Hidden on Mobile) */}
             <div className="bg-gray-800 p-1 rounded-lg hidden md:flex">
               {['grid', 'timeline', 'stats'].map(v => (
                  <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${view === v ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>{v}</button>
@@ -413,12 +415,11 @@ function App() {
           </div>
         </div>
         
-        {/* ERA LEGEND (Mobile Scrollable) */}
         {view === 'grid' && (
           <div className="w-full flex md:flex-wrap gap-4 md:gap-6 text-[10px] text-gray-500 uppercase tracking-wider font-bold overflow-x-auto no-scrollbar md:justify-center whitespace-nowrap px-1">
             {ERAS.map(era => (
               <div key={era.name} className="flex items-center gap-2 flex-shrink-0">
-                <div className={`w-3 h-3 ${era.color} rounded-[1px]`}></div>{era.name}
+                <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>{era.name}
               </div>
             ))}
             <div className="w-px h-3 bg-gray-700 mx-2 flex-shrink-0"></div>
@@ -449,25 +450,32 @@ function App() {
               const isMatch = doesMatchSearch(entry);
               const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
 
-              let boxClass = "bg-[#1a1a1a] border border-[#222]"; 
+              // Base Box Style: Rounded, Smooth Transition
+              let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
               
               if (isPast) {
-                boxClass = `${era.color} border-none hover:opacity-80 cursor-pointer transition-opacity`; 
+                // PAST: DIMMED NEON (Brightens on Hover)
+                boxClass += ` ${era.color} hover:bg-white hover:shadow-[0_0_15px_rgba(255,255,255,0.8)] hover:scale-150 hover:z-50 cursor-pointer`;
+                
                 if (entry) {
+                  // MEMORY: FULL BRIGHTNESS + Stronger Glow
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
-                  boxClass = `${styles.bg} shadow-[0_0_5px_rgba(0,0,0,0.5)] z-10`;
-                  if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)] z-20 hover:bg-amber-300";
+                  boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
+                  if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_20px_rgba(251,191,36,1)] z-20 animate-pulse cursor-pointer hover:scale-150";
                 }
               } else if (isCurrent) {
-                boxClass = "bg-white shadow-[0_0_15px_rgba(255,255,255,0.8)] z-30 scale-125 animate-pulse cursor-pointer"; 
+                // CURRENT: Bright White Pulse
+                boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
               } else if (isFuture) {
-                boxClass = "bg-[#121212] border border-[#222] hover:border-gray-500 cursor-pointer"; 
+                // FUTURE: Subtle Outline
+                boxClass += " bg-transparent border border-white/10 hover:border-white/50 hover:bg-white/10 cursor-pointer"; 
                 if (entry) {
+                  // FUTURE GOAL: Hollow Neon Border
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
-                  boxClass = `bg-transparent border-2 ${styles.border} z-10`; 
-                  if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.2)]";
+                  boxClass = `bg-transparent border-2 ${styles.border} shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10 hover:scale-125`; 
+                  if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)] hover:scale-125";
                 }
               }
 
@@ -488,9 +496,9 @@ function App() {
         </div>
       )}
 
-      {/* --- TIMELINE VIEW (Padded) --- */}
+      {/* --- TIMELINE VIEW - UPDATED MARGIN for spacing --- */}
       {view === 'timeline' && (
-        <div className="max-w-2xl w-full flex flex-col gap-6 px-4 md:px-0">
+        <div className="max-w-2xl w-full flex flex-col gap-6 px-4 md:px-0 mt-12 md:mt-20">
           {getSortedEntries().length === 0 ? (
             <div className="text-center text-gray-500 py-20">{debouncedSearch ? "No matches found." : "No memories logged yet."}</div>
           ) : (
@@ -515,15 +523,26 @@ function App() {
         </div>
       )}
 
-      {/* --- STATS VIEW (Padded) --- */}
+      {/* --- STATS VIEW (Centered) --- */}
       {view === 'stats' && (
-        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 animate-in fade-in duration-500">
-           {/* ... stats content ... */}
+        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 pb-20 animate-in fade-in duration-500 mt-12 md:mt-20">
            <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500">Total Memories</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70">Milestones</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70">Docs Rate</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500">Weeks Left</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
+                <span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span>
+                <span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Total Memories</span>
+             </div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
+                <span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span>
+                <span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70 text-center">Milestones</span>
+             </div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
+                <span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span>
+                <span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70 text-center">Docs Rate</span>
+             </div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center aspect-square md:aspect-auto">
+                <span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span>
+                <span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Weeks Left</span>
+             </div>
           </div>
           <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800">
             <h3 className="text-xl font-bold mb-6">Life Balance</h3>
@@ -545,15 +564,14 @@ function App() {
         </div>
       )}
 
-      {/* --- MOBILE BOTTOM NAVIGATION (New) --- */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#121212] border-t border-gray-800 p-2 pb-6 flex md:hidden justify-around z-50">
+      {/* --- MOBILE BOTTOM NAVIGATION --- */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-gray-800 p-2 pb-6 flex md:hidden justify-around z-50">
          {['grid', 'timeline', 'stats'].map(v => (
            <button 
              key={v}
              onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${view === v ? 'text-white' : 'text-gray-600'}`}
            >
-             {/* Icons */}
              {v === 'grid' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>}
              {v === 'timeline' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>}
              {v === 'stats' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>}
@@ -562,7 +580,7 @@ function App() {
          ))}
       </div>
 
-      {/* FLOATING ACTION BUTTON (Grid View Only, Positioned above Bottom Nav on mobile) */}
+      {/* FLOATING ACTION BUTTON */}
       {view === 'grid' && (
         <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
@@ -593,7 +611,6 @@ function App() {
                ))}
              </div>
              <div className="p-6 overflow-y-auto">
-               {/* ... (Existing Settings Content Same as Before) ... */}
                {settingsTab === 'categories' && (
                  <div className="space-y-6">
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
