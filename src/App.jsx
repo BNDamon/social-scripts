@@ -1,9 +1,37 @@
 // src/App.jsx
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 
+// --- STYLES: Custom Animations ---
+const GLOBAL_STYLES = `
+  /* 1. The initial "Burn In" load animation */
+  @keyframes burnIn {
+    0% { opacity: 0; transform: scale(0.5); filter: brightness(2); }
+    100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+  }
+  .animate-burn-in {
+    animation: burnIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+
+  /* 2. NEW: The "Future Shimmer" scanline effect */
+  @keyframes shimmer {
+    0% { background-position: 150% 0; }
+    100% { background-position: -150% 0; }
+  }
+  .future-shimmer {
+    /* A very subtle angled gradient moving across the dark box */
+    background: linear-gradient(
+      120deg, 
+      transparent 30%, 
+      rgba(255, 255, 255, 0.05) 50%, 
+      transparent 70%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 6s infinite linear; /* Slow, continuous movement */
+    border-color: rgba(255, 255, 255, 0.08); /* Slightly brighter default border */
+  }
+`;
+
 // --- CONSTANTS: DIMMED NEON ERAS ---
-// Low opacity fill (20%) so they don't overwhelm the eye.
-// Colored borders maintain the distinct "Era" feel.
 const ERAS = [
   { name: 'Early Childhood', ageLimit: 5,  color: 'bg-cyan-500/20 border border-cyan-500/50 shadow-[0_0_2px_rgba(6,182,212,0.3)]' },
   { name: 'School Age',      ageLimit: 18, color: 'bg-blue-500/20 border border-blue-500/50 shadow-[0_0_2px_rgba(59,130,246,0.3)]' },
@@ -15,32 +43,28 @@ const ERAS = [
 ];
 
 const PRESET_COLORS = {
-  slate:   { bg: 'bg-slate-500',   text: 'text-slate-500',   border: 'border-slate-500', shadow: 'shadow-slate-500/50' },
-  red:     { bg: 'bg-red-500',     text: 'text-red-500',     border: 'border-red-500',   shadow: 'shadow-red-500/50' },
-  orange:  { bg: 'bg-orange-500',  text: 'text-orange-500',  border: 'border-orange-500', shadow: 'shadow-orange-500/50' },
-  amber:   { bg: 'bg-amber-500',   text: 'text-amber-500',   border: 'border-amber-500', shadow: 'shadow-amber-500/50' },
-  yellow:  { bg: 'bg-yellow-500',  text: 'text-yellow-500',  border: 'border-yellow-500', shadow: 'shadow-yellow-500/50' },
-  lime:    { bg: 'bg-lime-500',    text: 'text-lime-500',    border: 'border-lime-500',  shadow: 'shadow-lime-500/50' },
-  green:   { bg: 'bg-green-500',   text: 'text-green-500',   border: 'border-green-500', shadow: 'shadow-green-500/50' },
-  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500', shadow: 'shadow-emerald-500/50' },
-  teal:    { bg: 'bg-teal-500',    text: 'text-teal-500',    border: 'border-teal-500',  shadow: 'shadow-teal-500/50' },
-  cyan:    { bg: 'bg-cyan-500',    text: 'text-cyan-500',    border: 'border-cyan-500',  shadow: 'shadow-cyan-500/50' },
-  sky:     { bg: 'bg-sky-500',     text: 'text-sky-500',     border: 'border-sky-500',   shadow: 'shadow-sky-500/50' },
-  blue:    { bg: 'bg-blue-500',    text: 'text-blue-500',    border: 'border-blue-500',  shadow: 'shadow-blue-500/50' },
-  indigo:  { bg: 'bg-indigo-500',  text: 'text-indigo-500',  border: 'border-indigo-500', shadow: 'shadow-indigo-500/50' },
-  violet:  { bg: 'bg-violet-500',  text: 'text-violet-500',  border: 'border-violet-500', shadow: 'shadow-violet-500/50' },
-  purple:  { bg: 'bg-purple-500',  text: 'text-purple-500',  border: 'border-purple-500', shadow: 'shadow-purple-500/50' },
-  fuchsia: { bg: 'bg-fuchsia-500', text: 'text-fuchsia-500', border: 'border-fuchsia-500', shadow: 'shadow-fuchsia-500/50' },
-  pink:    { bg: 'bg-pink-500',    text: 'text-pink-500',    border: 'border-pink-500',  shadow: 'shadow-pink-500/50' },
-  rose:    { bg: 'bg-rose-500',    text: 'text-rose-500',    border: 'border-rose-500',  shadow: 'shadow-rose-500/50' },
+  slate:   { bg: 'bg-slate-500',   text: 'text-slate-500',   border: 'border-slate-500' },
+  red:     { bg: 'bg-red-500',     text: 'text-red-500',     border: 'border-red-500' },
+  orange:  { bg: 'bg-orange-500',  text: 'text-orange-500',  border: 'border-orange-500' },
+  amber:   { bg: 'bg-amber-500',   text: 'text-amber-500',   border: 'border-amber-500' },
+  yellow:  { bg: 'bg-yellow-500',  text: 'text-yellow-500',  border: 'border-yellow-500' },
+  lime:    { bg: 'bg-lime-500',    text: 'text-lime-500',    border: 'border-lime-500' },
+  green:   { bg: 'bg-green-500',   text: 'text-green-500',   border: 'border-green-500' },
+  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500' },
+  teal:    { bg: 'bg-teal-500',    text: 'text-teal-500',    border: 'border-teal-500' },
+  cyan:    { bg: 'bg-cyan-500',    text: 'text-cyan-500',    border: 'border-cyan-500' },
+  sky:     { bg: 'bg-sky-500',     text: 'text-sky-500',     border: 'border-sky-500' },
+  blue:    { bg: 'bg-blue-500',    text: 'text-blue-500',    border: 'border-blue-500' },
+  indigo:  { bg: 'bg-indigo-500',  text: 'text-indigo-500',  border: 'border-indigo-500' },
+  violet:  { bg: 'bg-violet-500',  text: 'text-violet-500',  border: 'border-violet-500' },
+  purple:  { bg: 'bg-purple-500',  text: 'text-purple-500',  border: 'border-purple-500' },
+  fuchsia: { bg: 'bg-fuchsia-500', text: 'text-fuchsia-500', border: 'border-fuchsia-500' },
+  pink:    { bg: 'bg-pink-500',    text: 'text-pink-500',    border: 'border-pink-500' },
+  rose:    { bg: 'bg-rose-500',    text: 'text-rose-500',    border: 'border-rose-500' },
 };
 
-const DEFAULT_CATEGORIES = {
-  default:   { label: 'General',   colorKey: 'green' },
-  career:    { label: 'Growth',    colorKey: 'cyan' },
-  love:      { label: 'Love',      colorKey: 'rose' },
-  health:    { label: 'Health',    colorKey: 'emerald' },
-  adventure: { label: 'Adventure', colorKey: 'orange' },
+const INITIAL_CATEGORIES = {
+  default: { label: 'General', colorKey: 'slate' },
 };
 
 // --- OPTIMIZATION: Memoized WeekBox ---
@@ -48,6 +72,7 @@ const WeekBox = React.memo(({
   weekIndex, 
   boxClass, 
   opacityClass, 
+  animDelay,
   onClick, 
   onMouseEnter, 
   onMouseLeave,
@@ -55,7 +80,8 @@ const WeekBox = React.memo(({
 }) => {
   return (
     <div 
-      className={`w-[6px] h-[6px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass}`} 
+      className={`w-[6px] h-[6px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
+      style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
       onMouseEnter={(e) => onMouseEnter(e, weekIndex)} 
       onMouseLeave={onMouseLeave}
@@ -66,7 +92,8 @@ const WeekBox = React.memo(({
   return (
     prev.boxClass === next.boxClass &&
     prev.opacityClass === next.opacityClass &&
-    prev.isCurrent === next.isCurrent
+    prev.isCurrent === next.isCurrent &&
+    prev.animDelay === next.animDelay
   );
 });
 
@@ -74,13 +101,23 @@ function App() {
   // --- Lazy Initialization ---
   const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
   const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
-  const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(DEFAULT_CATEGORIES)));
+  const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
+  const [reminderTime, setReminderTime] = useState(() => localStorage.getItem('reminderTime') || '');
 
   const [view, setView] = useState('grid');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
   const [selectedWeek, setSelectedWeek] = useState(null);
+  
+  // --- Animation State ---
+  const [introMode, setIntroMode] = useState(false);
+
+  // --- NEW MEMORY FIELDS ---
   const [tempIntention, setTempIntention] = useState('');
+  const [tempTitle, setTempTitle] = useState('');
+  const [tempRating, setTempRating] = useState(5);
+  const [tempImage, setTempImage] = useState('');
+  
   const [isMilestone, setIsMilestone] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('default');
   
@@ -92,7 +129,6 @@ function App() {
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
   
   const fileInputRef = useRef(null);
-  const currentBoxRef = useRef(null);
 
   // Search Debounce
   useEffect(() => {
@@ -117,7 +153,7 @@ function App() {
         case 'k':
         case '/': e.preventDefault(); document.querySelector('input[type="text"]')?.focus(); break;
         case 'escape': setShowModal(false); setShowSettings(false); setRawSearch(''); break;
-        case 't': jumpToNow(); break;
+        case 't': document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center' }); break;
         case 'g': setView('grid'); break;
         case 'l': setView('timeline'); break;
         case 's': setView('stats'); break;
@@ -127,9 +163,43 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // --- Notification Logic ---
+  const requestNotificationPermission = useCallback(() => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support desktop notifications");
+      return;
+    }
+    Notification.requestPermission().then((permission) => {
+      if (permission === "granted") {
+        new Notification("Memento Mori", { body: "Notifications enabled!" });
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!reminderTime || Notification.permission !== "granted") return;
+    const checkTime = setInterval(() => {
+      const now = new Date();
+      const currentHours = String(now.getHours()).padStart(2, '0');
+      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${currentHours}:${currentMinutes}`;
+      if (currentTime === reminderTime) {
+        new Notification("Memento Mori", { body: "It is time to log your week.", icon: "/icon-192.png", vibrate: [200, 100, 200] });
+      }
+    }, 60000); 
+    return () => clearInterval(checkTime);
+  }, [reminderTime]);
+
+  const handleTimeChange = (e) => {
+    setReminderTime(e.target.value);
+    localStorage.setItem('reminderTime', e.target.value);
+    if (Notification.permission === 'default') requestNotificationPermission();
+  };
+
   const getCategoryStyle = useCallback((catKey) => {
     const cat = categories[catKey] || categories.default;
-    const colorKey = cat.colorKey || 'green'; 
+    if (!cat) return PRESET_COLORS.slate;
+    const colorKey = cat.colorKey || 'slate'; 
     return { ...PRESET_COLORS[colorKey], label: cat.label };
   }, [categories]);
 
@@ -164,8 +234,7 @@ function App() {
   const stats = getLifeStats;
 
   const jumpToNow = useCallback(() => {
-    const el = document.getElementById("current-week-box");
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   }, []);
 
   const onBoxClick = useCallback((weekIndex) => {
@@ -174,7 +243,7 @@ function App() {
   }, [intentions, categories]);
 
   const onBoxEnter = useCallback((e, weekIndex) => {
-    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return; // No tooltips on touch
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
 
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
@@ -192,23 +261,32 @@ function App() {
     else if (isPast && entry) {
         const catKey = entry.category || 'default';
         const styles = getCategoryStyle(catKey);
+        const stars = entry.rating ? "★".repeat(entry.rating) : "";
         content = (
           <div className="text-left">
-            <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">{dateStr}</div>
-            <div className="font-bold text-sm mb-1">{entry.isMilestone ? "⭐ Milestone" : styles.label}</div>
-            <div className="text-xs text-gray-300 max-w-[200px] leading-tight">{entry.text}</div>
+            <div className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex justify-between">
+              <span>{dateStr}</span>
+              <span className="text-yellow-500 text-xs">{entry.rating ? `${entry.rating}/10` : ''}</span>
+            </div>
+            <div className="font-bold text-sm mb-1 text-white">
+              {entry.title ? entry.title : (entry.isMilestone ? "⭐ Milestone" : styles.label)}
+            </div>
+            {entry.image && (
+              <div className="w-full h-20 bg-cover bg-center rounded mb-2 border border-white/10" style={{ backgroundImage: `url(${entry.image})` }}></div>
+            )}
+            <div className="text-xs text-gray-400 max-w-[200px] leading-tight line-clamp-4">{entry.text}</div>
           </div>
         );
     } else if (isFuture && entry) {
          content = (
             <div className="text-left">
-            <div className="text-[10px] uppercase font-bold text-gray-500 mb-1">{dateStr}</div>
-            <div className="font-bold text-sm text-cyan-400 mb-1">🎯 Goal</div>
-            <div className="text-xs text-gray-300 max-w-[200px] leading-tight">{entry.text}</div>
+              <div className="text-[10px] uppercase font-bold text-gray-500 mb-1">{dateStr}</div>
+              <div className="font-bold text-sm text-cyan-400 mb-1">🎯 {entry.title || "Goal"}</div>
+              <div className="text-xs text-gray-400 max-w-[200px] leading-tight">{entry.text}</div>
             </div>
         );
     } else {
-        content = <div className="text-left"><div className="text-[10px] uppercase font-bold text-gray-500">{dateStr}</div><div className="text-xs text-gray-400">{era.name}</div></div>;
+        content = <div className="text-left"><div className="text-[10px] uppercase font-bold text-gray-600">{dateStr}</div><div className="text-xs text-gray-600">{era.name}</div></div>;
     }
 
     setTooltip(prev => {
@@ -227,6 +305,12 @@ function App() {
     if (date) {
       localStorage.setItem('dob', date);
       setBirthday(date);
+      
+      // --- FIX: Force Grid & Trigger Intro Animation ---
+      setView('grid'); 
+      setIntroMode(true);
+      // Turn off intro mode after animation finishes
+      setTimeout(() => setIntroMode(false), 4000); 
     }
   };
   
@@ -241,9 +325,10 @@ function App() {
       localStorage.removeItem('dob');
       localStorage.removeItem('intentions');
       localStorage.removeItem('categories');
+      localStorage.removeItem('reminderTime');
       setBirthday('');
       setIntentions({});
-      setCategories(DEFAULT_CATEGORIES);
+      setCategories(INITIAL_CATEGORIES);
       setShowSettings(false);
     }
   };
@@ -271,7 +356,7 @@ function App() {
           if (confirm("Overwrite current grid?")) {
             localStorage.setItem('dob', data.dob);
             localStorage.setItem('intentions', JSON.stringify(data.intentions));
-            const cats = data.categories || DEFAULT_CATEGORIES;
+            const cats = data.categories || INITIAL_CATEGORIES;
             localStorage.setItem('categories', JSON.stringify(cats));
             setBirthday(data.dob);
             setIntentions(data.intentions);
@@ -288,18 +373,31 @@ function App() {
   const handleBoxClick = (weekIndex) => {
     const savedData = intentions[weekIndex];
     let text = '';
+    let title = '';
+    let rating = 5;
+    let image = '';
     let milestone = false;
     let category = 'default';
-    if (typeof savedData === 'string') {
-      text = savedData;
-    } else if (savedData) {
-      text = savedData.text;
-      milestone = savedData.isMilestone || false;
-      category = savedData.category || 'default';
-      if (!categories[category]) category = 'default';
+
+    if (savedData) {
+      if (typeof savedData === 'string') {
+        text = savedData;
+      } else {
+        text = savedData.text || '';
+        title = savedData.title || '';
+        rating = savedData.rating || 5;
+        image = savedData.image || '';
+        milestone = savedData.isMilestone || false;
+        category = savedData.category || 'default';
+        if (!categories[category]) category = 'default';
+      }
     }
+
     setSelectedWeek(weekIndex);
     setTempIntention(text);
+    setTempTitle(title);
+    setTempRating(rating);
+    setTempImage(image);
     setIsMilestone(milestone);
     setSelectedCategory(category);
     setShowModal(true);
@@ -308,10 +406,17 @@ function App() {
   const saveIntention = () => {
     if (selectedWeek === null) return;
     const newIntentions = { ...intentions };
-    if (tempIntention.trim() === "") {
+    if (tempIntention.trim() === "" && tempTitle.trim() === "" && tempImage.trim() === "") {
       delete newIntentions[selectedWeek];
     } else {
-      newIntentions[selectedWeek] = { text: tempIntention, isMilestone: isMilestone, category: selectedCategory };
+      newIntentions[selectedWeek] = { 
+        text: tempIntention, 
+        title: tempTitle,
+        rating: tempRating,
+        image: tempImage,
+        isMilestone: isMilestone, 
+        category: selectedCategory 
+      };
     }
     setIntentions(newIntentions);
     localStorage.setItem('intentions', JSON.stringify(newIntentions));
@@ -338,11 +443,12 @@ function App() {
   const doesMatchSearch = (entry) => {
     if (!debouncedSearch) return true;
     if (!entry) return false;
-    const text = typeof entry === 'string' ? entry : entry.text;
+    const text = typeof entry === 'string' ? entry : entry.text || '';
+    const title = typeof entry === 'object' ? entry.title || '' : '';
     const catKey = typeof entry === 'object' ? entry.category : 'default';
     const catLabel = categories[catKey]?.label || '';
     const lowerQuery = debouncedSearch.toLowerCase();
-    return text.toLowerCase().includes(lowerQuery) || catLabel.toLowerCase().includes(lowerQuery);
+    return text.toLowerCase().includes(lowerQuery) || title.toLowerCase().includes(lowerQuery) || catLabel.toLowerCase().includes(lowerQuery);
   };
 
   const dashboardStats = useMemo(() => {
@@ -373,6 +479,7 @@ function App() {
   if (!birthday) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
+        <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E] p-8 rounded-2xl border border-gray-800 shadow-2xl text-center">
           <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">MEMENTO MORI</h1>
           <p className="text-gray-500 mb-8">Your life in weeks.</p>
@@ -389,8 +496,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center relative pb-24 md:pb-10">
+      <style>{GLOBAL_STYLES}</style>
       
-      {/* HEADER - UPDATED PADDING for alignment */}
+      {/* HEADER */}
       <header className="w-full max-w-[1200px] flex flex-col gap-6 px-4 py-4 md:px-0 md:py-8 pb-4 border-b border-gray-800 bg-[#050505] sticky top-0 z-30">
         <div className="flex flex-row justify-between items-end gap-4">
           <div>
@@ -450,7 +558,10 @@ function App() {
               const isMatch = doesMatchSearch(entry);
               const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
 
-              // Base Box Style: Rounded, Smooth Transition
+              // Calculate staggered animation delay for intro
+              const animDelay = introMode && isPast ? `${i * 2}ms` : undefined;
+
+              // Base Box Style
               let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
               
               if (isPast) {
@@ -458,20 +569,19 @@ function App() {
                 boxClass += ` ${era.color} hover:bg-white hover:shadow-[0_0_15px_rgba(255,255,255,0.8)] hover:scale-150 hover:z-50 cursor-pointer`;
                 
                 if (entry) {
-                  // MEMORY: FULL BRIGHTNESS + Stronger Glow
+                  // MEMORY: FULL BRIGHTNESS
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
                   if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_20px_rgba(251,191,36,1)] z-20 animate-pulse cursor-pointer hover:scale-150";
                 }
               } else if (isCurrent) {
-                // CURRENT: Bright White Pulse
+                // CURRENT
                 boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
               } else if (isFuture) {
-                // FUTURE: Subtle Outline
-                boxClass += " bg-transparent border border-white/10 hover:border-white/50 hover:bg-white/10 cursor-pointer"; 
+                // FUTURE: Add Shimmer Effect
+                boxClass += " future-shimmer border border-white/10 hover:border-white/30 cursor-pointer"; 
                 if (entry) {
-                  // FUTURE GOAL: Hollow Neon Border
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `bg-transparent border-2 ${styles.border} shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10 hover:scale-125`; 
@@ -485,9 +595,10 @@ function App() {
                   weekIndex={i}
                   boxClass={boxClass}
                   opacityClass={opacityClass}
+                  animDelay={animDelay}
                   onClick={onBoxClick}
                   onMouseEnter={onBoxEnter}
-                  onMouseLeave={onBoxLeave}
+                  onMouseLeave={onBoxLeave} // <--- FIXED HERE
                   isCurrent={isCurrent}
                 />
               );
@@ -496,7 +607,7 @@ function App() {
         </div>
       )}
 
-      {/* --- TIMELINE VIEW - UPDATED MARGIN for spacing --- */}
+      {/* --- TIMELINE VIEW --- */}
       {view === 'timeline' && (
         <div className="max-w-2xl w-full flex flex-col gap-6 px-4 md:px-0 mt-12 md:mt-20">
           {getSortedEntries().length === 0 ? (
@@ -512,10 +623,15 @@ function App() {
                     <div className="flex gap-2 items-center">
                       <span className={`text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${isFuture ? 'bg-gray-800 text-gray-400' : `${styles.text} bg-gray-900`}`}>{isFuture ? 'Target' : styles.label}</span>
                       {entry.isMilestone && <span className="text-amber-400 text-lg">⭐</span>}
+                      {/* Show Rating in Timeline */}
+                      {entry.rating && <span className="text-yellow-500 text-xs ml-2">★ {entry.rating}</span>}
                     </div>
-                    <span className="text-xs text-gray-500 font-mono">{getDateFromWeekIndex(entry.weekIndex)} • Age {getAgeFromWeekIndex(entry.weekIndex)}</span>
+                    <span className="text-xs text-gray-500 font-mono">{getDateFromWeekIndex(entry.weekIndex)}</span>
                   </div>
-                  <p className={`text-lg leading-relaxed ${entry.isMilestone ? 'text-white font-semibold' : 'text-gray-300'}`}>{entry.text}</p>
+                  {/* Show Title */}
+                  {entry.title && <h3 className="text-white font-bold mb-2 text-lg">{entry.title}</h3>}
+                  <p className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap">{entry.text}</p>
+                  {entry.image && <img src={entry.image} alt="Memory" className="mt-4 rounded border border-gray-700 max-h-60 object-cover" />}
                 </div>
               );
             })
@@ -590,7 +706,7 @@ function App() {
       {/* --- CUSTOM TOOLTIP --- */}
       {tooltip.show && (
         <div 
-          className="fixed z-50 bg-[#222] border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none backdrop-blur-md animate-in fade-in duration-75"
+          className="fixed z-50 bg-[#222] border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none backdrop-blur-md animate-in fade-in duration-75 max-w-xs"
           style={{ top: tooltip.y, left: tooltip.x }}
         >
           {tooltip.content}
@@ -638,7 +754,14 @@ function App() {
                  <div className="space-y-4">
                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Date of Birth</label>
                      <input type="date" value={birthday} onChange={updateBirthday} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
-                     <p className="text-xs text-gray-500 mt-2">Changing this will recalculate your entire life grid.</p>
+                     
+                     <div className="pt-4 border-t border-gray-800">
+                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Daily Reminder</label>
+                      <div className="flex gap-2">
+                        <input type="time" value={reminderTime} onChange={handleTimeChange} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
+                        <button onClick={requestNotificationPermission} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700" title="Test Permissions">🔔</button>
+                      </div>
+                     </div>
                  </div>
                )}
                {settingsTab === 'data' && (
@@ -658,17 +781,58 @@ function App() {
         </div>
       )}
 
-      {/* MEMORY MODAL */}
+      {/* MEMORY MODAL (NEW FIELDS) */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-[#1E1E1E] p-6 md:p-8 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl animate-in fade-in zoom-in duration-200 m-4">
-            <div className="flex justify-between items-center mb-1">
-              <h2 className="text-xl md:text-2xl font-bold text-white">{selectedWeek === stats.weeksLived ? "Claim This Week" : (selectedWeek > stats.weeksLived ? "Set Future Goal" : "Edit Memory")}</h2>
-              <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title={selectedWeek > stats.weeksLived ? "Major Life Goal" : "Mark as Milestone"}>{isMilestone ? '⭐' : '☆'}</button>
+          <div className="bg-[#1E1E1E] p-6 md:p-8 rounded-2xl max-w-md w-full border border-gray-700 shadow-2xl animate-in fade-in zoom-in duration-200 m-4 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl md:text-2xl font-bold text-white">{selectedWeek === stats.weeksLived ? "Log This Week" : (selectedWeek > stats.weeksLived ? "Set Future Goal" : "Edit Memory")}</h2>
+              <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title="Milestone">{isMilestone ? '⭐' : '☆'}</button>
             </div>
-            <p className="text-xs uppercase tracking-widest font-bold text-gray-500 mb-4 flex items-center gap-2"><span className="text-cyan-500">{getDateFromWeekIndex(selectedWeek)}</span><span>•</span>{getEraForWeek(selectedWeek).name}</p>
-            <textarea autoFocus className={`w-full bg-black/50 text-white p-4 rounded-lg border focus:outline-none mb-4 transition-colors h-24 resize-none ${isMilestone ? 'border-amber-400/50' : 'border-gray-700 focus:border-white'}`} value={tempIntention} onChange={(e) => setTempIntention(e.target.value)} placeholder={selectedWeek > stats.weeksLived ? "What do you want to achieve?" : "What happened?"} />
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
+            <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2"><span className="text-cyan-500">{getDateFromWeekIndex(selectedWeek)}</span><span>•</span>{getEraForWeek(selectedWeek).name}</p>
+            
+            {/* Title Input */}
+            <input 
+              className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" 
+              placeholder="Headline (e.g. Promotion!)" 
+              value={tempTitle}
+              onChange={(e) => setTempTitle(e.target.value)}
+            />
+
+            {/* Rating Slider */}
+            <div className="bg-black/30 p-3 rounded-lg border border-gray-800">
+               <div className="flex justify-between text-xs uppercase font-bold text-gray-500 mb-2">
+                 <span>Rating</span>
+                 <span className="text-yellow-500">{tempRating}/10</span>
+               </div>
+               <input 
+                 type="range" min="1" max="10" 
+                 value={tempRating} 
+                 onChange={(e) => setTempRating(parseInt(e.target.value))}
+                 className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+               />
+            </div>
+
+            {/* Main Text Note */}
+            <textarea 
+              className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[100px] resize-none" 
+              value={tempIntention} 
+              onChange={(e) => setTempIntention(e.target.value)} 
+              placeholder="Write your story here..."
+            />
+            
+            {/* Image URL Input */}
+            <input 
+              className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" 
+              placeholder="Image URL (https://...)" 
+              value={tempImage}
+              onChange={(e) => setTempImage(e.target.value)}
+            />
+
+            {/* Category Selector */}
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
               {Object.entries(categories).map(([key, val]) => {
                 const styles = getCategoryStyle(key);
                 return (
@@ -676,9 +840,11 @@ function App() {
                 );
               })}
             </div>
-            <div className="flex gap-3">
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-2">
               <button onClick={() => setShowModal(false)} className="flex-1 py-3 text-gray-400 hover:text-white">Cancel</button>
-              <button onClick={saveIntention} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>{selectedWeek > stats.weeksLived ? "SET TARGET" : "SAVE MEMORY"}</button>
+              <button onClick={saveIntention} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE</button>
             </div>
           </div>
         </div>
