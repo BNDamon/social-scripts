@@ -543,33 +543,34 @@ function App() {
         )}
       </header>
 
-      {/* --- GRID VIEW (Scrollable Container) --- */}
+      {/* --- GRID VIEW (Optimized) --- */}
       {view === 'grid' && (
         <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
-           {/* Fixed Width Container for 52-week rows */}
+           {/* Fixed Width Container */}
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
             {Array.from({ length: stats.totalWeeks }).map((_, i) => {
               const isPast = i < stats.weeksLived;
               const isCurrent = i === stats.weeksLived;
               const isFuture = i > stats.weeksLived;
+              
+              // OPTIMIZATION: Only animate the next 5 years (260 weeks) to save GPU
+              const isNearFuture = isFuture && (i < stats.weeksLived + 260); 
+              
               const entry = intentions[i];
               const era = getEraForWeek(i);
               
               const isMatch = doesMatchSearch(entry);
               const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
 
-              // Calculate staggered animation delay for intro
-              const animDelay = introMode && isPast ? `${i * 2}ms` : undefined;
+              // Calculate staggered animation delay (Only for past weeks, capped to prevent lag)
+              const animDelay = introMode && isPast ? `${Math.min(i * 2, 3000)}ms` : undefined;
 
-              // Base Box Style
               let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
               
               if (isPast) {
-                // PAST: DIMMED NEON (Brightens on Hover)
+                // PAST: DIMMED NEON
                 boxClass += ` ${era.color} hover:bg-white hover:shadow-[0_0_15px_rgba(255,255,255,0.8)] hover:scale-150 hover:z-50 cursor-pointer`;
-                
                 if (entry) {
-                  // MEMORY: FULL BRIGHTNESS
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
                   boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
@@ -579,8 +580,14 @@ function App() {
                 // CURRENT
                 boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
               } else if (isFuture) {
-                // FUTURE: Add Shimmer Effect
-                boxClass += " future-shimmer border border-white/10 hover:border-white/30 cursor-pointer"; 
+                if (isNearFuture) {
+                   // NEAR FUTURE: Active Shimmer (High Detail)
+                   boxClass += " future-shimmer border border-white/10 hover:border-white/50 hover:bg-white/10 cursor-pointer"; 
+                } else {
+                   // DISTANT FUTURE: Static (Low Cost)
+                   boxClass += " bg-transparent border border-white/5 hover:border-white/20 cursor-pointer";
+                }
+
                 if (entry) {
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
@@ -598,7 +605,7 @@ function App() {
                   animDelay={animDelay}
                   onClick={onBoxClick}
                   onMouseEnter={onBoxEnter}
-                  onMouseLeave={onBoxLeave} // <--- FIXED HERE
+                  onMouseLeave={onBoxLeave} // Ensure this matches your callback name (onBoxLeave)
                   isCurrent={isCurrent}
                 />
               );
