@@ -22,6 +22,14 @@ const GLOBAL_STYLES = `
     opacity: 0.7;
     border-color: transparent !important;
   }
+
+  /* LANDSCAPE MODE OPTIMIZATIONS */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .landscape-hide { display: none !important; }
+    .landscape-compact { padding-top: 4px !important; padding-bottom: 4px !important; gap: 8px !important; }
+    .landscape-row { flex-direction: row !important; align-items: center; justify-content: space-between; }
+    .landscape-text-tiny { font-size: 0.75rem !important; }
+  }
 `;
 
 // --- CONSTANTS: DIMMED NEON ERAS ---
@@ -228,7 +236,11 @@ function App() {
   const stats = getLifeStats;
 
   const jumpToNow = useCallback(() => {
-    document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    document.getElementById("current-week-box")?.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center',    // Keep vertical centering
+      inline: 'nearest'   // FIX: Don't shift the grid horizontally if not needed
+    });
   }, []);
 
   const onBoxClick = useCallback((weekIndex) => {
@@ -489,12 +501,12 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center relative pb-24 md:pb-10">
+    <div className="min-h-screen bg-[#050505] overflow-x-hidden text-white flex flex-col items-center relative pb-24 md:pb-10">
       <style>{GLOBAL_STYLES}</style>
       
       {/* HEADER */}
-      <header className="w-full max-w-[1200px] flex flex-col gap-3 px-4 py-4 md:px-0 md:py-8 pb-2 border-b border-gray-800 bg-[#050505] sticky top-0 z-30">
-        <div className="flex flex-row justify-between items-end gap-4">
+      <header className="w-full max-w-[1200px] flex flex-col gap-3 px-4 py-4 md:px-0 md:py-8 pb-2 border-b border-gray-800 bg-[#050505] sticky top-0 z-30 landscape-compact">
+        <div className="flex flex-row justify-between items-end gap-4 landscape-row w-full">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">LIFE GRID</h1>
             <p className="text-gray-500 text-xs md:text-sm mt-1">
@@ -519,7 +531,7 @@ function App() {
         
         {/* ERA & CATEGORY LEGEND (Restored Highlighting + Two Lines) */}
         {view === 'grid' && (
-          <div className="w-full flex flex-col gap-2 md:gap-3 mt-1">
+          <div className="w-full flex flex-col gap-2 md:gap-3 mt-1 landscape-hide">
             
             {/* ROW 1: ERAS (With Current Era Highlight) */}
             <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center">
