@@ -65,13 +65,10 @@ const INITIAL_CATEGORIES = {
   default: { label: 'General', colorKey: 'slate' },
 };
 
-// --- COMPONENT: WeekBox (Memoized for Grid Performance) ---
+// --- COMPONENT: WeekBox ---
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, onMouseEnter, onMouseLeave, isCurrent }) => {
   return (
     <div 
-      // DATA ATTRIBUTE FOR MOBILE SCRUBBER
-      data-week-index={weekIndex}
-      
       className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
       style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
@@ -89,18 +86,16 @@ const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onCl
   );
 });
 
-// --- COMPONENT: MemoryModal (Isolated to prevent typing lag) ---
+// --- COMPONENT: MemoryModal ---
 const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, getDateStr, getEraName }) => {
-  // Local State
   const [title, setTitle] = useState(initialData.title || '');
-  const [text, setText] = useState(initialData.text || ''); // Summary
+  const [text, setText] = useState(initialData.text || ''); 
   const [rating, setRating] = useState(initialData.rating || 5);
   const [image, setImage] = useState(initialData.image || '');
   const [isMilestone, setIsMilestone] = useState(initialData.isMilestone || false);
   const [category, setCategory] = useState(initialData.category || 'default');
-  const [logs, setLogs] = useState(initialData.logs || []); // Array of logs
+  const [logs, setLogs] = useState(initialData.logs || []);
   
-  // New Log Inputs
   const [newLogText, setNewLogText] = useState('');
   const [newLogTag, setNewLogTag] = useState('');
 
@@ -148,9 +143,8 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
 
         {/* CONTENT */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Section: Summary */}
           <div className="space-y-4">
-            <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder="Headline (e.g. Promotion!)" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder="Headline" value={title} onChange={(e) => setTitle(e.target.value)} />
             
             <div className="flex gap-2">
                <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
@@ -176,7 +170,6 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
             <input className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" placeholder="Image URL (https://...)" value={image} onChange={(e) => setImage(e.target.value)} />
           </div>
 
-          {/* Section: Journal */}
           <div className="border-t border-gray-800 pt-6">
             <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Daily Journal</h3>
             <div className="space-y-2 mb-4">
@@ -198,7 +191,6 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
           </div>
         </div>
 
-        {/* FOOTER */}
         <div className="p-4 border-t border-gray-800 bg-[#1E1E1E] flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
           <button onClick={handleSave} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg hover:scale-[1.02] transition-transform ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE ENTRY</button>
@@ -221,6 +213,9 @@ function App() {
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [introMode, setIntroMode] = useState(false);
   
+  // --- NEW: SELECTION / PREVIEW STATE ---
+  const [previewWeek, setPreviewWeek] = useState(null);
+
   const [rawSearch, setRawSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [newCatName, setNewCatName] = useState('');
@@ -294,6 +289,8 @@ function App() {
     return targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const getAgeFromWeekIndex = (weekIndex) => { return Math.floor(weekIndex / 52); };
+
   const getLifeStats = useMemo(() => {
     if (!birthday) return { weeksLived: 0, totalWeeks: 4680 };
     const birthDate = new Date(birthday);
@@ -311,30 +308,43 @@ function App() {
 
   const stats = getLifeStats;
 
-  // ------------------------------------------------------------------
-  // INTERACTION HANDLERS (Defined BEFORE Touch Logic)
-  // ------------------------------------------------------------------
-
   const jumpToNow = useCallback(() => {
     document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   }, []);
 
-  const onBoxClick = useCallback((weekIndex) => {
-    setSelectedWeek(weekIndex);
-    setShowModal(true);
-    setTooltip(prev => ({ ...prev, show: false }));
+  // --- NEW INTERACTION LOGIC (Mobile Friendly) ---
+  const handleBoxClick = useCallback((weekIndex) => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      setPreviewWeek(weekIndex); // Just highlight first
+    } else {
+      openModal(weekIndex); // Desktop opens immediately
+    }
   }, []);
 
-  const onBoxEnter = useCallback((e, weekIndex) => {
-    // Mobile Check for Tooltip Positioning
-    const isMobile = window.innerWidth < 768;
-    if (!e?.target) return; // Safety check for scrubbing
+  const openModal = (weekIndex) => {
+    setSelectedWeek(weekIndex);
+    setShowModal(true);
+    setPreviewWeek(null);
+    setTooltip(prev => ({ ...prev, show: false }));
+  };
 
+  const adjustPreview = (amount) => {
+    if (previewWeek === null) return;
+    const newWeek = previewWeek + amount;
+    if (newWeek >= 0 && newWeek < stats.totalWeeks) {
+      setPreviewWeek(newWeek);
+    }
+  };
+
+  const onBoxEnter = useCallback((e, weekIndex) => {
+    // Only show tooltip on desktop hover
+    if (window.innerWidth < 768) return;
+
+    if (!e?.target) return;
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
-    // On mobile, float the tooltip WAY above the finger (-60px)
-    const yOffset = isMobile ? -60 : 15;
-    const y = rect.top + window.scrollY + yOffset;
+    const y = rect.top + window.scrollY + 15;
 
     const entry = intentions[weekIndex];
     const isPast = weekIndex < stats.weeksLived;
@@ -374,43 +384,6 @@ function App() {
   }, [intentions, categories, stats, getCategoryStyle]);
 
   const onBoxLeave = useCallback(() => { setTooltip(prev => ({ ...prev, show: false })); }, []);
-
-  // ------------------------------------------------------------------
-  // MOBILE SCRUBBER LOGIC (Defined AFTER onBoxEnter)
-  // ------------------------------------------------------------------
-  const [activeScrubId, setActiveScrubId] = useState(null); 
-
-  const handleTouchStart = () => { /* Ready state */ };
-
-  const handleTouchMove = useCallback((e) => {
-    const touch = e.touches[0];
-    // Find element under finger
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    
-    // Check if it's a WeekBox
-    if (target && target.dataset.weekIndex) {
-      const index = parseInt(target.dataset.weekIndex);
-      if (activeScrubId !== index) {
-        setActiveScrubId(index);
-        // Haptic feedback
-        if (navigator.vibrate) navigator.vibrate(5);
-        // Show Tooltip manually
-        onBoxEnter({ target: target }, index); 
-      }
-    }
-  }, [activeScrubId, onBoxEnter]);
-
-  const handleTouchEnd = () => {
-    if (activeScrubId !== null) {
-      onBoxClick(activeScrubId); // Open Modal
-      setActiveScrubId(null);
-    }
-  };
-
-
-  // ------------------------------------------------------------------
-  // DATA MANAGEMENT
-  // ------------------------------------------------------------------
 
   const handleSaveBirthday = (e) => {
     e.preventDefault();
@@ -588,12 +561,7 @@ function App() {
       </header>
 
       {view === 'grid' && (
-        <div 
-          className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y" 
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
+        <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0">
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
             {Array.from({ length: stats.totalWeeks }).map((_, i) => {
               const isPast = i < stats.weeksLived;
@@ -601,12 +569,19 @@ function App() {
               const isFuture = i > stats.weeksLived;
               const entry = intentions[i];
               const era = getEraForWeek(i);
+              
               const isMatch = doesMatchSearch(entry);
               const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
               const animDelay = introMode && isPast ? `${Math.min(i * 2, 3000)}ms` : undefined;
+              
+              // Mobile Preview Highlighting
+              const isPreview = i === previewWeek;
 
               let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
-              if (isPast) {
+              
+              if (isPreview) {
+                 boxClass += " bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,1)] z-50 scale-150 border border-white";
+              } else if (isPast) {
                 if (entry) {
                   const catKey = entry.category || 'default';
                   const styles = getCategoryStyle(catKey);
@@ -623,9 +598,34 @@ function App() {
                   if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)] hover:scale-125";
                 }
               }
-              return ( <WeekBox key={i} weekIndex={i} boxClass={boxClass} opacityClass={opacityClass} animDelay={animDelay} onClick={onBoxClick} onMouseEnter={onBoxEnter} onMouseLeave={onBoxLeave} isCurrent={isCurrent} /> );
+              return ( <WeekBox key={i} weekIndex={i} boxClass={boxClass} opacityClass={opacityClass} animDelay={animDelay} onClick={handleBoxClick} onMouseEnter={onBoxEnter} onMouseLeave={onBoxLeave} isCurrent={isCurrent} /> );
             })}
           </div>
+        </div>
+      )}
+
+      {/* --- MOBILE CONTROL BAR (Precision Selector) --- */}
+      {previewWeek !== null && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#121212] border-t border-gray-800 p-4 pb-8 z-[60] flex flex-col gap-3 shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Selected Week</p>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                {getDateFromWeekIndex(previewWeek)}
+                {intentions[previewWeek] && <span className="text-[10px] bg-cyan-900 text-cyan-400 px-1 rounded">HAS DATA</span>}
+              </h3>
+            </div>
+            <div className="text-right">
+               <p className="text-[10px] uppercase font-bold text-gray-500">{getEraForWeek(previewWeek).name}</p>
+               <p className="text-xs text-gray-400">Age {getAgeFromWeekIndex(previewWeek)}</p>
+            </div>
+          </div>
+          <div className="flex gap-2 h-12">
+            <button onClick={() => adjustPreview(-1)} className="w-14 bg-gray-800 rounded-lg flex items-center justify-center text-xl hover:bg-gray-700 active:scale-95 transition-all border border-gray-700">←</button>
+            <button onClick={() => openModal(previewWeek)} className="flex-1 bg-cyan-500 text-black font-black text-sm uppercase tracking-wider rounded-lg hover:bg-cyan-400 active:scale-[0.98] transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]">{intentions[previewWeek] ? "Edit Entry" : "Log Memory"}</button>
+            <button onClick={() => adjustPreview(1)} className="w-14 bg-gray-800 rounded-lg flex items-center justify-center text-xl hover:bg-gray-700 active:scale-95 transition-all border border-gray-700">→</button>
+          </div>
+          <button onClick={() => setPreviewWeek(null)} className="absolute -top-10 right-4 bg-gray-800 text-white rounded-full p-2 text-xs shadow-lg border border-gray-700">✕ Cancel</button>
         </div>
       )}
 
@@ -638,7 +638,7 @@ function App() {
               const styles = getCategoryStyle(entry.category || 'default');
               const isFuture = entry.weekIndex > stats.weeksLived;
               return (
-                <div key={entry.weekIndex} className={`bg-[#1E1E1E] border-l-4 p-6 rounded-r-lg shadow-lg cursor-pointer hover:bg-[#252525] transition-colors group relative ${isFuture ? 'opacity-70 border-dashed' : ''}`} style={{ borderLeftColor: entry.isMilestone ? '#fbbf24' : (isFuture ? 'gray' : undefined) }} onClick={() => onBoxClick(entry.weekIndex)}>
+                <div key={entry.weekIndex} className={`bg-[#1E1E1E] border-l-4 p-6 rounded-r-lg shadow-lg cursor-pointer hover:bg-[#252525] transition-colors group relative ${isFuture ? 'opacity-70 border-dashed' : ''}`} style={{ borderLeftColor: entry.isMilestone ? '#fbbf24' : (isFuture ? 'gray' : undefined) }} onClick={() => handleBoxClick(entry.weekIndex)}>
                   {!entry.isMilestone && <div className={`absolute left-0 top-0 bottom-0 w-1 ${styles.bg} -ml-[4px]`}></div>}
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2 items-center">
@@ -706,7 +706,7 @@ function App() {
          ))}
       </div>
 
-      {view === 'grid' && (
+      {view === 'grid' && !previewWeek && (
         <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></button>
       )}
 
