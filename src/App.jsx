@@ -108,7 +108,7 @@ const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onCl
 });
 
 // --- COMPONENT: MemoryModal ---
-// Updated to include tutorial overlay for Step 4
+// --- COMPONENT: MemoryModal (Updated for Side-by-Side Tutorial) ---
 const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, getDateStr, getEraName, tutorialMode, finishTutorial }) => {
   const [title, setTitle] = useState(initialData.title || '');
   const [text, setText] = useState(initialData.text || ''); 
@@ -117,131 +117,105 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   const [isMilestone, setIsMilestone] = useState(initialData.isMilestone || false);
   const [category, setCategory] = useState(initialData.category || 'default');
   const [logs, setLogs] = useState(initialData.logs || []);
-  
   const [newLogText, setNewLogText] = useState('');
   const [newLogTag, setNewLogTag] = useState('');
 
   const handleAddLog = () => {
     if (!newLogText.trim()) return;
-    const newEntry = {
-      id: Date.now(),
-      text: newLogText,
-      tag: newLogTag || new Date().toLocaleDateString('en-US', { weekday: 'short' })
-    };
-    setLogs([...logs, newEntry]);
-    setNewLogText('');
-    setNewLogTag('');
+    const newEntry = { id: Date.now(), text: newLogText, tag: newLogTag || new Date().toLocaleDateString('en-US', { weekday: 'short' }) };
+    setLogs([...logs, newEntry]); setNewLogText(''); setNewLogTag('');
   };
-
-  const handleRemoveLog = (id) => {
-    setLogs(logs.filter(l => l.id !== id));
-  };
-
-  const handleSave = () => {
-    onSave({ title, text, rating, image, isMilestone, category, logs });
-  };
-
+  const handleRemoveLog = (id) => setLogs(logs.filter(l => l.id !== id));
+  const handleSave = () => onSave({ title, text, rating, image, isMilestone, category, logs });
   const getCategoryStyle = (catKey) => {
     const cat = categories[catKey] || categories.default;
-    if (!cat) return PRESET_COLORS.slate;
-    const colorKey = cat.colorKey || 'slate'; 
-    return { ...PRESET_COLORS[colorKey], label: cat.label };
+    return { ...PRESET_COLORS[cat.colorKey || 'slate'], label: cat.label };
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[150] backdrop-blur-sm">
-      <div className="bg-[#1E1E1E] border border-gray-800 shadow-2xl rounded-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 relative">
-        
-        {/* --- TUTORIAL STEP 4 OVERLAY --- */}
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[150] backdrop-blur-sm overflow-hidden">
+      {/* FLEX CONTAINER: Holds Sidecar (optional) + Main Modal side-by-side */}
+      <div className={`flex flex-col md:flex-row items-center justify-center gap-6 transition-all duration-500 ${tutorialMode ? 'w-full max-w-6xl' : 'w-full max-w-lg'}`}>
+
+        {/* --- 1. TUTORIAL SIDECAR (Appears on the left) --- */}
         {tutorialMode && (
-          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6 text-center">
-             <div className="max-w-xs space-y-6">
-               <h3 className="text-2xl font-black text-white">CRAFT YOUR MEMORY</h3>
-               <div className="text-left space-y-4 text-sm text-gray-300">
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">📊</span>
-                    <div><strong className="text-white block">Rating</strong>Rate your week 1-10. This builds your life graph over time.</div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">⭐</span>
-                    <div><strong className="text-white block">Milestones</strong>Toggle the star for major life events to make them stand out.</div>
-                  </div>
-                  <div className="flex gap-3 items-start">
-                    <span className="text-xl">📝</span>
-                    <div><strong className="text-white block">Journal</strong>Don't just summarize. Log specific moments to remember the details.</div>
-                  </div>
-               </div>
-               <button onClick={finishTutorial} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest text-xs">
-                 Start Using Mementus
-               </button>
+          <div className="w-full md:w-80 bg-[#0a0a0a] border border-cyan-500/50 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-left-8 duration-700 flex-shrink-0 order-2 md:order-1">
+             <h3 className="text-xl font-black text-white mb-6 tracking-wide border-b border-gray-800 pb-4">LOGGING A MEMORY</h3>
+             <div className="space-y-6 text-sm text-gray-400">
+                <div className="flex gap-4">
+                  <div className="bg-gray-800 h-10 w-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0">📰</div>
+                  <div><strong className="text-white block mb-1">Headline</strong>Give your week a short title like "Trip to Japan" to make it searchable.</div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="bg-gray-800 h-10 w-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0">📊</div>
+                  <div><strong className="text-white block mb-1">Rating</strong>Score your week 1-10. Be honest. This builds your life graph.</div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="bg-gray-800 h-10 w-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0">📝</div>
+                  <div><strong className="text-white block mb-1">Journal</strong>Log specific moments using the <b>+</b> button below.</div>
+                </div>
              </div>
+             <button onClick={finishTutorial} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] mt-8">
+               Start Using Mementum
+             </button>
           </div>
         )}
 
-        {/* HEADER */}
-        <div className="p-6 border-b border-gray-800 bg-[#1E1E1E] z-10">
-          <div className="flex justify-between items-center mb-1">
-            <h2 className="text-xl font-bold text-white">{isCurrentWeek ? "Log This Week" : "Edit Memory"}</h2>
-            <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title="Milestone">{isMilestone ? '⭐' : '☆'}</button>
+        {/* --- 2. MAIN MODAL FORM --- */}
+        <div className="bg-[#1E1E1E] border border-gray-800 shadow-2xl rounded-2xl w-full flex flex-col max-h-[90vh] overflow-hidden flex-shrink-0 order-1 md:order-2 md:max-w-lg">
+          <div className="p-6 border-b border-gray-800 bg-[#1E1E1E] z-10">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-xl font-bold text-white">{isCurrentWeek ? "Log This Week" : "Edit Memory"}</h2>
+              <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title="Milestone">{isMilestone ? '⭐' : '☆'}</button>
+            </div>
+            <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2"><span className="text-cyan-500">{getDateStr}</span><span>•</span>{getEraName}</p>
           </div>
-          <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2">
-            <span className="text-cyan-500">{getDateStr}</span><span>•</span>{getEraName}
-          </p>
-        </div>
-
-        {/* CONTENT */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="space-y-4">
-            <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder="Headline" value={title} onChange={(e) => setTitle(e.target.value)} />
-            
-            <div className="flex gap-2">
-               <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-500">RATING</span>
-                  <div className="flex items-center gap-2">
-                    <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
-                    <span className="text-yellow-500 text-xs font-bold">{rating}</span>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="space-y-4">
+              <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder="Headline" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <div className="flex gap-2">
+                 <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-500">RATING</span>
+                    <div className="flex items-center gap-2">
+                      <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                      <span className="text-yellow-500 text-xs font-bold">{rating}</span>
+                    </div>
+                 </div>
+                 <div className="flex-1 bg-black/30 p-2 rounded-lg border border-gray-800 overflow-x-auto no-scrollbar flex items-center">
+                    <div className="flex gap-2">
+                      {Object.entries(categories).map(([key, val]) => {
+                        const styles = getCategoryStyle(key);
+                        return ( <button key={key} onClick={() => setCategory(key)} className={`flex-shrink-0 px-2 py-1 rounded text-[10px] font-bold transition-all border ${category === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700'}`}>{val.label}</button>);
+                      })}
+                    </div>
+                 </div>
+              </div>
+              <textarea className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[80px] resize-none text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Weekly summary..." />
+              <input className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" placeholder="Image URL (https://...)" value={image} onChange={(e) => setImage(e.target.value)} />
+            </div>
+            <div className="border-t border-gray-800 pt-6">
+              <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Daily Journal</h3>
+              <div className="space-y-2 mb-4">
+                {logs.map(log => (
+                  <div key={log.id} className="flex gap-3 bg-black/30 p-3 rounded border border-gray-800 group">
+                    <span className="text-[10px] font-bold text-cyan-500 bg-cyan-900/20 px-2 py-1 rounded h-fit uppercase">{log.tag}</span>
+                    <span className="text-sm text-gray-300 flex-1">{log.text}</span>
+                    <button onClick={() => handleRemoveLog(log.id)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">×</button>
                   </div>
-               </div>
-               <div className="flex-1 bg-black/30 p-2 rounded-lg border border-gray-800 overflow-x-auto no-scrollbar flex items-center">
-                  <div className="flex gap-2">
-                    {Object.entries(categories).map(([key, val]) => {
-                      const styles = getCategoryStyle(key);
-                      return (
-                        <button key={key} onClick={() => setCategory(key)} className={`flex-shrink-0 px-2 py-1 rounded text-[10px] font-bold transition-all border ${category === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700'}`}>{val.label}</button>
-                      );
-                    })}
-                  </div>
-               </div>
-            </div>
-
-            <textarea className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[80px] resize-none text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Weekly summary..." />
-            <input className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" placeholder="Image URL (https://...)" value={image} onChange={(e) => setImage(e.target.value)} />
-          </div>
-
-          <div className="border-t border-gray-800 pt-6">
-            <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Daily Journal</h3>
-            <div className="space-y-2 mb-4">
-              {logs.map(log => (
-                <div key={log.id} className="flex gap-3 bg-black/30 p-3 rounded border border-gray-800 group">
-                  <span className="text-[10px] font-bold text-cyan-500 bg-cyan-900/20 px-2 py-1 rounded h-fit uppercase">{log.tag}</span>
-                  <span className="text-sm text-gray-300 flex-1">{log.text}</span>
-                  <button onClick={() => handleRemoveLog(log.id)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">×</button>
-                </div>
-              ))}
-              {logs.length === 0 && <div className="text-center text-xs text-gray-700 py-2 italic">No daily logs yet.</div>}
-            </div>
-
-            <div className="flex gap-2">
-              <input className="w-20 bg-black/50 text-white text-xs p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none uppercase font-bold text-center" placeholder="DAY" value={newLogTag} onChange={(e) => setNewLogTag(e.target.value)} />
-              <input className="flex-1 bg-black/50 text-white text-sm p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none" placeholder="Add entry..." value={newLogText} onChange={(e) => setNewLogText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddLog()} />
-              <button onClick={handleAddLog} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700 text-lg">+</button>
+                ))}
+                {logs.length === 0 && <div className="text-center text-xs text-gray-700 py-2 italic">No daily logs yet.</div>}
+              </div>
+              <div className="flex gap-2">
+                <input className="w-20 bg-black/50 text-white text-xs p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none uppercase font-bold text-center" placeholder="DAY" value={newLogTag} onChange={(e) => setNewLogTag(e.target.value)} />
+                <input className="flex-1 bg-black/50 text-white text-sm p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none" placeholder="Add entry..." value={newLogText} onChange={(e) => setNewLogText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddLog()} />
+                <button onClick={handleAddLog} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700 text-lg">+</button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="p-4 border-t border-gray-800 bg-[#1E1E1E] flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
-          <button onClick={handleSave} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg hover:scale-[1.02] transition-transform ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE ENTRY</button>
+          <div className="p-4 border-t border-gray-800 bg-[#1E1E1E] flex gap-3">
+            <button onClick={onClose} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
+            <button onClick={handleSave} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg hover:scale-[1.02] transition-transform ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE ENTRY</button>
+          </div>
         </div>
       </div>
     </div>
@@ -263,7 +237,7 @@ function App() {
   const [previewWeek, setPreviewWeek] = useState(null);
 
   // --- TUTORIAL STATE ---
-  // 1 = Intro, 2 = Animation, 3 = Try it Out, 4 = Modal Explanation
+  // 1 = Intro, 2 = Animation, 3 = Description, 4 = Demo, 5 = Modal Explanation
   const [tutorialStep, setTutorialStep] = useState(() => {
     const hasSeen = localStorage.getItem('tutorial_seen');
     const hasDob = localStorage.getItem('dob');
@@ -301,18 +275,15 @@ function App() {
   const stats = getLifeStats;
 
   // --- ACTIONS (Tutorial) ---
- const nextTutorial = () => {
+  const nextTutorial = () => {
     if (tutorialStep === 1) {
       setTutorialStep(2); setShowPastAnimation(true); setTimeout(() => setGridReady(true), 3000); 
     } else if (tutorialStep === 2) {
-      // Step 3: Description of features (NEW)
-      setTutorialStep(3);
+      setTutorialStep(3); // How to Use
     } else if (tutorialStep === 3) {
-      // Step 4: Show Control Bar to Log Memory (MOVED HERE)
-      setTutorialStep(4);
-      setPreviewWeek(stats.weeksLived); 
+      setTutorialStep(4); setPreviewWeek(stats.weeksLived); // Try It Out
     } else {
-      // Finish
+      // Step 5 (or any other) finishes the tutorial
       setTutorialStep(0);
       localStorage.setItem('tutorial_seen', 'true');
       setGridReady(true);
@@ -353,11 +324,7 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const handler = setTimeout(() => { setDebouncedSearch(rawSearch); }, 300);
-    return () => clearTimeout(handler);
-  }, [rawSearch]);
-
+  useEffect(() => { const h = setTimeout(() => setDebouncedSearch(rawSearch), 300); return () => clearTimeout(h); }, [rawSearch]);
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
@@ -366,7 +333,7 @@ function App() {
       }
       switch(e.key.toLowerCase()) {
         case 'k': case '/': e.preventDefault(); document.querySelector('input[type="text"]')?.focus(); break;
-        case 'escape': setShowModal(false); setShowSettings(false); setRawSearch(''); break;
+        case 'escape': setShowModal(false); setShowSettings(false); setRawSearch(''); setPreviewWeek(null); break;
         case 't': document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center' }); break;
         case 'g': setView('grid'); break;
         case 'l': setView('timeline'); break;
@@ -377,24 +344,12 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // --- 2. NOTIFICATIONS ---
+  // --- DATA ---
   const scheduleNotification = async () => {
     const perm = await LocalNotifications.requestPermissions();
     if (perm.display !== 'granted') return;
-    const pending = await LocalNotifications.getPending();
-    if (pending.notifications.length > 0) {
-      await LocalNotifications.cancel(pending);
-    }
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          title: "Mementus",
-          body: "Time to log your week.",
-          id: 1,
-          schedule: { on: { weekday: 6, hour: 20, minute: 0 }, allowWhileIdle: true },
-        }
-      ]
-    });
+    await LocalNotifications.cancel(await LocalNotifications.getPending());
+    await LocalNotifications.schedule({ notifications: [{ title: "Mementum", body: "Time to log your week.", id: 1, schedule: { on: { weekday: 6, hour: 20, minute: 0 }, allowWhileIdle: true } }] });
     alert("Reminder enabled: Fridays at 8 PM.");
   };
 
@@ -409,7 +364,7 @@ function App() {
     document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   }, []);
 
-  // --- 3. UNIFIED INTERACTION LOGIC (Desktop & Mobile) ---
+  // --- 3. UNIFIED INTERACTION LOGIC ---
   const handleBoxClick = useCallback((weekIndex) => {
     setPreviewWeek(weekIndex);
   }, []);
@@ -419,9 +374,10 @@ function App() {
     setShowModal(true);
     setPreviewWeek(null);
     setTooltip(prev => ({ ...prev, show: false }));
-    // FIX: ADVANCE TUTORIAL ON OPEN
+    
+    // NEW: If we are in "Try it Out" (Step 4), move to Step 5 (Side-by-Side)
     if (tutorialStep === 4) {
-      nextTutorial();
+      setTutorialStep(5);
     }
   };
 
@@ -434,7 +390,7 @@ function App() {
   };
 
   const onBoxEnter = useCallback((e, weekIndex) => {
-    if (window.innerWidth < 768) return;
+    if (window.innerWidth < 768) return; 
     if (!e?.target) return;
     const rect = e.target.getBoundingClientRect();
     const x = rect.left + window.scrollX + 15;
@@ -596,7 +552,7 @@ function App() {
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUS</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUM</h1>
           <p className="text-cyan-200/50 mb-8 font-medium tracking-wide">Your life in weeks.</p>
           <form onSubmit={handleSaveBirthday} className="space-y-5">
             <input type="date" name="dob" className="w-full bg-black/40 text-white p-4 rounded-xl border border-gray-800 transition-all duration-300 focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.2)] outline-none text-center text-xl placeholder-gray-600" required />
@@ -635,8 +591,7 @@ function App() {
                 const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
                 return (
                   <div key={era.name} className={`flex items-center gap-2 flex-shrink-0 transition-all duration-300 ${isCurrentEra ? 'opacity-100 scale-105' : 'opacity-50'}`}>
-                    <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div>
-                    <span className={`text-[10px] uppercase font-bold whitespace-nowrap ${isCurrentEra ? 'text-white' : 'text-gray-500'}`}>{era.name}</span>
+                    <div className={`w-3 h-3 rounded-[1px] ${era.color}`}></div><span className={`text-[10px] uppercase font-bold whitespace-nowrap ${isCurrentEra ? 'text-white' : 'text-gray-500'}`}>{era.name}</span>
                   </div>
                 );
               })}
@@ -673,8 +628,7 @@ function App() {
               const isAnimatingPast = isPastRaw && !gridReady && showPastAnimation;
 
               let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
-              // FIX 1: DYNAMIC ANIMATION TIMING (Ensures consistent speed regardless of age)
-              const crossOutAnimDelay = isAnimatingPast ? `${(i / stats.weeksLived) * 2500}ms` : undefined;
+              const crossOutAnimDelay = isAnimatingPast ? `${(i / stats.weeksLived) * 2.5}s` : undefined;
               
               if (isPreview) {
                  boxClass += " bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,1)] z-50 scale-150 border border-white";
@@ -727,7 +681,7 @@ function App() {
         </div>
       )}
 
-      {/* TIMELINE VIEW */}
+      {/* TIMELINE VIEW (EXPANDED) */}
       {view === 'timeline' && (
         <div className="max-w-2xl w-full flex flex-col gap-6 px-4 md:px-0 mt-12 md:mt-20">
           {getSortedEntries().length === 0 ? (
@@ -758,7 +712,7 @@ function App() {
         </div>
       )}
 
-      {/* STATS VIEW */}
+      {/* STATS VIEW (EXPANDED) */}
       {view === 'stats' && (
         <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 pb-20 animate-in fade-in duration-500 mt-12 md:mt-20">
            <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -880,26 +834,26 @@ function App() {
           isCurrentWeek={selectedWeek === stats.weeksLived}
           getDateStr={getDateFromWeekIndex(selectedWeek)}
           getEraName={getEraForWeek(selectedWeek).name}
-          // FIX 4: PASS TUTORIAL MODE PROPS TO MODAL
-          tutorialMode={tutorialStep === 4}
+          // NEW PROPS FOR TUTORIAL
+          tutorialMode={tutorialStep === 5}
           finishTutorial={nextTutorial}
         />
       )}
 
-      {/* --- 3-STEP SEQUENTIAL TUTORIAL --- */}
-      {tutorialStep > 0 && tutorialStep < 4 && (
+      {/* --- 5-STEP SEQUENTIAL TUTORIAL --- */}
+      {tutorialStep > 0 && tutorialStep < 5 && (
         <div 
           // BACKGROUND LOGIC:
           // Step 1: Dark (Focus)
-          // Step 2 & 3: Transparent (Show Grid) + Pointer Events None (Click Through)
+          // Step 2, 3, 4: Transparent (Show Grid) + Pointer Events None (Click Through)
           className={`fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-700 ${
             tutorialStep === 1 ? 'bg-black/90 backdrop-blur-sm' : 'bg-transparent pointer-events-none'
           }`} 
-          // Only click-to-advance on Step 1. Steps 2 & 3 have specific buttons.
+          // Only click-to-advance on Step 1.
           onClick={tutorialStep === 1 ? nextTutorial : undefined}
         >
           
-          {/* SKIP BUTTON (Always clickable) */}
+          {/* SKIP BUTTON */}
           <button 
             onClick={(e) => { e.stopPropagation(); skipTutorial(); }} 
             className="absolute top-6 right-6 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full border border-gray-800 hover:bg-gray-800 transition-all pointer-events-auto bg-black/50 backdrop-blur-md"
@@ -907,7 +861,7 @@ function App() {
             Skip Tutorial
           </button>
 
-          {/* STEP 1: PHILOSOPHY (Centered, Dark BG) */}
+          {/* STEP 1: PHILOSOPHY */}
           {tutorialStep === 1 && (
             <div className="text-center max-w-md space-y-8 p-8 pointer-events-auto animate-in fade-in zoom-in duration-300">
                <div className="text-7xl mb-2 animate-pulse">⏳</div>
@@ -921,16 +875,15 @@ function App() {
             </div>
           )}
 
-          {/* STEP 2: ANIMATION (Centered, Transparent BG) */}
+          {/* STEP 2: ANIMATION */}
           {tutorialStep === 2 && (
             <div className="flex justify-center pointer-events-none w-full">
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
                  <h3 className="text-2xl font-bold text-white mb-2">YOUR PAST</h3>
                  <p className="text-gray-300 text-base mb-6 leading-relaxed">
                    The weeks you have already lived are gone. <br/>
-                   <span className="text-cyan-400 font-bold">It is time to focus on your future.</span>
+                   <span className="text-cyan-400 font-bold">Watch them disappear.</span>
                  </p>
-                 {/* Explicit Continue Button */}
                  <button 
                    onClick={(e) => { e.stopPropagation(); nextTutorial(); }}
                    className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs border border-gray-600 transition-all"
@@ -947,47 +900,30 @@ function App() {
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
                  <h3 className="text-2xl font-bold text-white mb-4">HOW TO USE</h3>
                  <div className="space-y-4 text-left text-sm text-gray-300 mb-6">
-                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
                     <div className="flex gap-3"><span className="text-xl">📊</span><div><strong className="text-white block">Rate Weeks</strong>Score your life 1-10 to see trends.</div></div>
                     <div className="flex gap-3"><span className="text-xl">⭐</span><div><strong className="text-white block">Milestones</strong>Mark major life events with a star.</div></div>
+                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
                  </div>
                  <button onClick={(e) => { e.stopPropagation(); nextTutorial(); }} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs shadow-lg">Ready to Try?</button>
                </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* STEP 4: "TRY IT OUT" (Interactive) */}
-      {tutorialStep === 4 && (
-            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent pointer-events-none">
-              {/* SKIP BUTTON */}
-              <button 
-                onClick={(e) => { e.stopPropagation(); skipTutorial(); }} 
-                className="absolute top-6 right-6 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full border border-gray-800 hover:bg-gray-800 transition-all pointer-events-auto bg-black/50 backdrop-blur-md"
-              >
-                Skip Tutorial
-              </button>
-
-              <div className="w-full flex justify-center pointer-events-none absolute bottom-40">
-                <div className="bg-[#1E1E1E] border border-cyan-500/50 p-8 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.4)] max-w-sm mx-4 relative backdrop-blur-xl pointer-events-auto animate-bounce-slight text-center">
-                  {/* Arrow pointing down to the REAL control bar */}
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#1E1E1E] border-r border-b border-cyan-500/50 rotate-45"></div>
-                  
-                  <h3 className="text-xl font-black text-white mb-2 tracking-tight">TRY IT OUT</h3>
-                  <p className="text-gray-300 text-sm mb-6 leading-relaxed">
-                    Use the <span className="text-white font-bold bg-cyan-600/20 px-2 py-0.5 rounded">Arrows</span> below to move between weeks. Then tap <b>Log Memory</b>.
-                  </p>
-                  
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); nextTutorial(); }} 
-                    className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3 rounded-xl uppercase tracking-widest text-xs shadow-lg hover:shadow-cyan-500/50 transition-all active:scale-[0.98]"
-                  >
-                    Finish Tutorial
-                  </button>
-                </div>
-              </div>
+          {/* STEP 4: "TRY IT OUT" (Interactive) */}
+          {tutorialStep === 4 && (
+            <div className="flex justify-center pointer-events-none w-full">
+               <div className="bg-[#1E1E1E] border border-cyan-500/50 p-8 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.4)] max-w-sm mx-4 relative backdrop-blur-xl pointer-events-auto animate-bounce-slight text-center">
+                 {/* Arrow pointing down to the REAL control bar */}
+                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#1E1E1E] border-r border-b border-cyan-500/50 rotate-45"></div>
+                 
+                 <h3 className="text-xl font-black text-white mb-2 tracking-tight">TRY IT OUT</h3>
+                 <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+                   Use the <span className="text-white font-bold bg-cyan-600/20 px-2 py-0.5 rounded">Arrows</span> below to move between weeks. Then tap <b>Log Memory</b>.
+                 </p>
+               </div>
             </div>
+          )}
+        </div>
       )}
     </div>
   );
