@@ -928,7 +928,7 @@ function App() {
                  <h3 className="text-2xl font-bold text-white mb-2">YOUR PAST</h3>
                  <p className="text-gray-300 text-base mb-6 leading-relaxed">
                    The weeks you have already lived are gone. <br/>
-                   <span className="text-cyan-400 font-bold">Watch them disappear.</span>
+                   <span className="text-cyan-400 font-bold">It is time to focus on your future.</span>
                  </p>
                  {/* Explicit Continue Button */}
                  <button 
@@ -947,9 +947,9 @@ function App() {
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
                  <h3 className="text-2xl font-bold text-white mb-4">HOW TO USE</h3>
                  <div className="space-y-4 text-left text-sm text-gray-300 mb-6">
+                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
                     <div className="flex gap-3"><span className="text-xl">📊</span><div><strong className="text-white block">Rate Weeks</strong>Score your life 1-10 to see trends.</div></div>
                     <div className="flex gap-3"><span className="text-xl">⭐</span><div><strong className="text-white block">Milestones</strong>Mark major life events with a star.</div></div>
-                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
                  </div>
                  <button onClick={(e) => { e.stopPropagation(); nextTutorial(); }} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs shadow-lg">Ready to Try?</button>
                </div>
