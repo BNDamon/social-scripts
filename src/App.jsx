@@ -301,20 +301,16 @@ function App() {
   const stats = getLifeStats;
 
   // --- ACTIONS (Tutorial) ---
-  const nextTutorial = () => {
+ const nextTutorial = () => {
     if (tutorialStep === 1) {
-      setTutorialStep(2);
-      setShowPastAnimation(true);
-      setTimeout(() => setGridReady(true), 3000); 
+      setTutorialStep(2); setShowPastAnimation(true); setTimeout(() => setGridReady(true), 3000); 
     } else if (tutorialStep === 2) {
+      // Step 3: Description of features (NEW)
       setTutorialStep(3);
-      setPreviewWeek(stats.weeksLived); 
     } else if (tutorialStep === 3) {
-      // Step 3 -> 4: User clicked "Log Memory" during tutorial
-      setPreviewWeek(null);
-      setSelectedWeek(stats.weeksLived);
-      setShowModal(true);
+      // Step 4: Show Control Bar to Log Memory (MOVED HERE)
       setTutorialStep(4);
+      setPreviewWeek(stats.weeksLived); 
     } else {
       // Finish
       setTutorialStep(0);
@@ -424,8 +420,8 @@ function App() {
     setPreviewWeek(null);
     setTooltip(prev => ({ ...prev, show: false }));
     // FIX: ADVANCE TUTORIAL ON OPEN
-    if (tutorialStep === 3) {
-      setTutorialStep(4);
+    if (tutorialStep === 4) {
+      nextTutorial();
     }
   };
 
@@ -893,15 +889,17 @@ function App() {
       {/* --- 3-STEP SEQUENTIAL TUTORIAL --- */}
       {tutorialStep > 0 && tutorialStep < 4 && (
         <div 
-          // FIX 2: CENTERING (flex, justify-center, items-center)
-          // BACKGROUND LOGIC: Step 1 (Dark), Steps 2-3 (Transparent + Pointer Events None)
+          // BACKGROUND LOGIC:
+          // Step 1: Dark (Focus)
+          // Step 2 & 3: Transparent (Show Grid) + Pointer Events None (Click Through)
           className={`fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-700 ${
             tutorialStep === 1 ? 'bg-black/90 backdrop-blur-sm' : 'bg-transparent pointer-events-none'
           }`} 
+          // Only click-to-advance on Step 1. Steps 2 & 3 have specific buttons.
           onClick={tutorialStep === 1 ? nextTutorial : undefined}
         >
           
-          {/* SKIP BUTTON */}
+          {/* SKIP BUTTON (Always clickable) */}
           <button 
             onClick={(e) => { e.stopPropagation(); skipTutorial(); }} 
             className="absolute top-6 right-6 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full border border-gray-800 hover:bg-gray-800 transition-all pointer-events-auto bg-black/50 backdrop-blur-md"
@@ -909,7 +907,7 @@ function App() {
             Skip Tutorial
           </button>
 
-          {/* STEP 1: PHILOSOPHY */}
+          {/* STEP 1: PHILOSOPHY (Centered, Dark BG) */}
           {tutorialStep === 1 && (
             <div className="text-center max-w-md space-y-8 p-8 pointer-events-auto animate-in fade-in zoom-in duration-300">
                <div className="text-7xl mb-2 animate-pulse">⏳</div>
@@ -923,15 +921,16 @@ function App() {
             </div>
           )}
 
-          {/* STEP 2: ANIMATION (CENTERED) */}
+          {/* STEP 2: ANIMATION (Centered, Transparent BG) */}
           {tutorialStep === 2 && (
-            <div className="w-full flex justify-center pointer-events-none">
+            <div className="flex justify-center pointer-events-none w-full">
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
                  <h3 className="text-2xl font-bold text-white mb-2">YOUR PAST</h3>
                  <p className="text-gray-300 text-base mb-6 leading-relaxed">
                    The weeks you have already lived are gone. <br/>
                    <span className="text-cyan-400 font-bold">Watch them disappear.</span>
                  </p>
+                 {/* Explicit Continue Button */}
                  <button 
                    onClick={(e) => { e.stopPropagation(); nextTutorial(); }}
                    className="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs border border-gray-600 transition-all"
@@ -942,24 +941,53 @@ function App() {
             </div>
           )}
 
-          {/* STEP 3: LIVE DEMO (CENTERED + FIX 3: Dismisses on Click) */}
+          {/* STEP 3: "HOW TO USE" (New Step before Log Memory) */}
           {tutorialStep === 3 && (
-            <div className="w-full flex justify-center pointer-events-none">
-               <div className="bg-[#1E1E1E] border border-cyan-500/50 p-8 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.4)] max-w-sm mx-4 relative backdrop-blur-xl pointer-events-auto animate-bounce-slight text-center">
-                 <h3 className="text-xl font-black text-white mb-2 tracking-tight">TRY IT OUT</h3>
-                 <p className="text-gray-300 text-sm mb-6 leading-relaxed">
-                   Use the <span className="text-white font-bold bg-cyan-600/20 px-2 py-0.5 rounded">Arrows</span> below to move between weeks. Then tap <b>Log Memory</b>.
-                 </p>
-                 <button 
-                   onClick={(e) => { e.stopPropagation(); nextTutorial(); }} 
-                   className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3 rounded-xl uppercase tracking-widest text-xs shadow-lg hover:shadow-cyan-500/50 transition-all active:scale-[0.98]"
-                 >
-                   Finish Tutorial
-                 </button>
+            <div className="flex justify-center pointer-events-none w-full">
+               <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
+                 <h3 className="text-2xl font-bold text-white mb-4">HOW TO USE</h3>
+                 <div className="space-y-4 text-left text-sm text-gray-300 mb-6">
+                    <div className="flex gap-3"><span className="text-xl">📊</span><div><strong className="text-white block">Rate Weeks</strong>Score your life 1-10 to see trends.</div></div>
+                    <div className="flex gap-3"><span className="text-xl">⭐</span><div><strong className="text-white block">Milestones</strong>Mark major life events with a star.</div></div>
+                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
+                 </div>
+                 <button onClick={(e) => { e.stopPropagation(); nextTutorial(); }} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs shadow-lg">Ready to Try?</button>
                </div>
             </div>
           )}
         </div>
+      )}
+
+      {/* STEP 4: "TRY IT OUT" (Interactive) */}
+      {tutorialStep === 4 && (
+            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent pointer-events-none">
+              {/* SKIP BUTTON */}
+              <button 
+                onClick={(e) => { e.stopPropagation(); skipTutorial(); }} 
+                className="absolute top-6 right-6 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full border border-gray-800 hover:bg-gray-800 transition-all pointer-events-auto bg-black/50 backdrop-blur-md"
+              >
+                Skip Tutorial
+              </button>
+
+              <div className="w-full flex justify-center pointer-events-none absolute bottom-40">
+                <div className="bg-[#1E1E1E] border border-cyan-500/50 p-8 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.4)] max-w-sm mx-4 relative backdrop-blur-xl pointer-events-auto animate-bounce-slight text-center">
+                  {/* Arrow pointing down to the REAL control bar */}
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#1E1E1E] border-r border-b border-cyan-500/50 rotate-45"></div>
+                  
+                  <h3 className="text-xl font-black text-white mb-2 tracking-tight">TRY IT OUT</h3>
+                  <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+                    Use the <span className="text-white font-bold bg-cyan-600/20 px-2 py-0.5 rounded">Arrows</span> below to move between weeks. Then tap <b>Log Memory</b>.
+                  </p>
+                  
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); nextTutorial(); }} 
+                    className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-black py-3 rounded-xl uppercase tracking-widest text-xs shadow-lg hover:shadow-cyan-500/50 transition-all active:scale-[0.98]"
+                  >
+                    Finish Tutorial
+                  </button>
+                </div>
+              </div>
+            </div>
       )}
     </div>
   );
