@@ -156,7 +156,7 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
                 </div>
              </div>
              <button onClick={finishTutorial} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] mt-8">
-               Start Using Mementum
+               Start Using Mementus
              </button>
           </div>
         )}
@@ -349,7 +349,7 @@ function App() {
     const perm = await LocalNotifications.requestPermissions();
     if (perm.display !== 'granted') return;
     await LocalNotifications.cancel(await LocalNotifications.getPending());
-    await LocalNotifications.schedule({ notifications: [{ title: "Mementum", body: "Time to log your week.", id: 1, schedule: { on: { weekday: 6, hour: 20, minute: 0 }, allowWhileIdle: true } }] });
+    await LocalNotifications.schedule({ notifications: [{ title: "Mementus", body: "Time to log your week.", id: 1, schedule: { on: { weekday: 6, hour: 20, minute: 0 }, allowWhileIdle: true } }] });
     alert("Reminder enabled: Fridays at 8 PM.");
   };
 
@@ -552,7 +552,7 @@ function App() {
       <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUM</h1>
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUS</h1>
           <p className="text-cyan-200/50 mb-8 font-medium tracking-wide">Your life in weeks.</p>
           <form onSubmit={handleSaveBirthday} className="space-y-5">
             <input type="date" name="dob" className="w-full bg-black/40 text-white p-4 rounded-xl border border-gray-800 transition-all duration-300 focus:border-cyan-500 focus:shadow-[0_0_15px_rgba(6,182,212,0.2)] outline-none text-center text-xl placeholder-gray-600" required />
@@ -900,9 +900,9 @@ function App() {
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
                  <h3 className="text-2xl font-bold text-white mb-4">HOW TO USE</h3>
                  <div className="space-y-4 text-left text-sm text-gray-300 mb-6">
+                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
                     <div className="flex gap-3"><span className="text-xl">📊</span><div><strong className="text-white block">Rate Weeks</strong>Score your life 1-10 to see trends.</div></div>
                     <div className="flex gap-3"><span className="text-xl">⭐</span><div><strong className="text-white block">Milestones</strong>Mark major life events with a star.</div></div>
-                    <div className="flex gap-3"><span className="text-xl">📝</span><div><strong className="text-white block">Journal</strong>Log daily details to remember them.</div></div>
                  </div>
                  <button onClick={(e) => { e.stopPropagation(); nextTutorial(); }} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs shadow-lg">Ready to Try?</button>
                </div>
