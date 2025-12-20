@@ -1,6 +1,7 @@
 // src/App.jsx
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import confetti from 'canvas-confetti';
 
 // --- STYLES: Custom Animations & Textures ---
 const GLOBAL_STYLES = `
@@ -86,6 +87,17 @@ const INITIAL_CATEGORIES = {
   default: { label: 'General', colorKey: 'slate' },
 };
 
+const WRITING_PROMPTS = [
+  "What was the highlight of this week?",
+  "What is one thing you learned?",
+  "Who did you enjoy spending time with?",
+  "What was a challenge you overcame?",
+  "Rate your energy levels this week.",
+  "What music were you listening to?",
+  "What's one thing you're grateful for?",
+  "Did you try anything new?"
+];
+
 // --- COMPONENT: WeekBox ---
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, onMouseEnter, onMouseLeave, isCurrent }) => {
   return (
@@ -120,13 +132,28 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   const [newLogText, setNewLogText] = useState('');
   const [newLogTag, setNewLogTag] = useState('');
 
+  const [currentPrompt, setCurrentPrompt] = useState('');
+  const rollDice = () => {
+    const random = WRITING_PROMPTS[Math.floor(Math.random() * WRITING_PROMPTS.length)];
+    setCurrentPrompt(random);
+  };
+
   const handleAddLog = () => {
     if (!newLogText.trim()) return;
     const newEntry = { id: Date.now(), text: newLogText, tag: newLogTag || new Date().toLocaleDateString('en-US', { weekday: 'short' }) };
     setLogs([...logs, newEntry]); setNewLogText(''); setNewLogTag('');
   };
   const handleRemoveLog = (id) => setLogs(logs.filter(l => l.id !== id));
-  const handleSave = () => onSave({ title, text, rating, image, isMilestone, category, logs });
+  const handleSave = () =>{
+    confetti({
+    particleCount: 100,
+    spread: 70,
+    origin: { y: 0.6 },
+    colors: ['#06b6d4', '#ffffff', '#fbbf24'] // Cyan, White, Amber
+  });
+  onSave({ title, text, rating, image, isMilestone, category, logs });  
+};
+  
   const getCategoryStyle = (catKey) => {
     const cat = categories[catKey] || categories.default;
     return { ...PRESET_COLORS[cat.colorKey || 'slate'], label: cat.label };
@@ -236,8 +263,6 @@ function App() {
   // --- SELECTION / PREVIEW STATE ---
   const [previewWeek, setPreviewWeek] = useState(null);
 
-  // --- TUTORIAL STATE ---
-  // 1 = Intro, 2 = Animation, 3 = Description, 4 = Demo, 5 = Modal Explanation
   const [tutorialStep, setTutorialStep] = useState(() => {
     const hasSeen = localStorage.getItem('tutorial_seen');
     const hasDob = localStorage.getItem('dob');
@@ -247,7 +272,14 @@ function App() {
   const [showPastAnimation, setShowPastAnimation] = useState(false);
   const [gridReady, setGridReady] = useState(() => localStorage.getItem('tutorial_seen') === 'true');
 
-  // --- HELPER FUNCTIONS ---
+  const [rawSearch, setRawSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('blue');
+  const [settingsTab, setSettingsTab] = useState('categories');
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
+  const fileInputRef = useRef(null);
+  
   const getDateFromWeekIndex = (weekIndex) => {
     if (!birthday) return "";
     const birthDate = new Date(birthday);
@@ -256,13 +288,9 @@ function App() {
   };
   
   const getAgeFromWeekIndex = (weekIndex) => Math.floor(weekIndex / 52);
+  const getEraForWeek = (weekIndex) => { const y = weekIndex / 52; for (let e of ERAS) if (y < e.ageLimit) return e; return ERAS[ERAS.length - 1]; };
+  const getCategoryStyle = useCallback((catKey) => { const c = categories[catKey] || categories.default; return { ...PRESET_COLORS[c.colorKey || 'slate'], label: c.label }; }, [categories]);
   
-  const getEraForWeek = (weekIndex) => {
-    const years = weekIndex / 52;
-    for (let era of ERAS) { if (years < era.ageLimit) return era; }
-    return ERAS[ERAS.length - 1];
-  };
-
   const getLifeStats = useMemo(() => {
     if (!birthday) return { weeksLived: 0, totalWeeks: 4680 };
     const birthDate = new Date(birthday);
@@ -271,10 +299,50 @@ function App() {
     const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
     return { weeksLived: diffWeeks, totalWeeks: 4680 };
   }, [birthday]);
-  
   const stats = getLifeStats;
 
-  // --- ACTIONS (Tutorial) ---
+  const jumpToNow = useCallback(() => {
+    document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  }, []);
+
+  const getFlashback = () => {
+    const oneYearAgoIndex = stats.weeksLived - 52;
+    const entry = intentions[oneYearAgoIndex];
+    if (entry) {
+      return (
+        <div className="w-full max-w-[1200px] mb-4 landscape-hide">
+          <div className="bg-gray-900 border border-gray-800 p-4 rounded-lg flex items-center justify-between cursor-pointer hover:bg-gray-800 transition-colors" onClick={() => handleBoxClick(oneYearAgoIndex)}>
+            <div>
+               <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1">One Year Ago</p>
+               <h4 className="text-white font-bold">{entry.title || "Untitled Memory"}</h4>
+            </div>
+            <span className="text-2xl">↺</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // 2. Streak Calculation
+  const currentStreak = useMemo(() => {
+    let streak = 0;
+    let current = stats.weeksLived;
+    while (intentions[current] || intentions[current - 1]) {
+      if (intentions[current]) { streak++; current--; } 
+      else if (intentions[current - 1]) { streak++; current--; } 
+      else { break; }
+    }
+    return streak;
+  }, [intentions, stats]);
+  
+  const doesMatchSearch = (entry) => { if (!debouncedSearch) return true; if (!entry) return false; const q = debouncedSearch.toLowerCase(); const txt = typeof entry === 'string' ? entry : entry.text || ''; const ti = entry.title || ''; const cl = categories[entry.category]?.label || ''; return txt.toLowerCase().includes(q) || ti.toLowerCase().includes(q) || cl.toLowerCase().includes(q) || (entry.logs && entry.logs.some(l => l.text.toLowerCase().includes(q))); };
+  
+  const dashboardStats = useMemo(() => { const v = Object.values(intentions); return { totalMemories: v.length, totalMilestones: v.filter(e => e.isMilestone).length, catCounts: v.reduce((acc, e) => { acc[e.category||'default'] = (acc[e.category||'default'] || 0) + 1; return acc; }, {}) }; }, [intentions]);
+  
+  const getSortedEntries = () => Object.entries(intentions).map(([i, d]) => ({ weekIndex: parseInt(i), ...(typeof d === 'string' ? { text: d } : d) })).sort((a, b) => a.weekIndex - b.weekIndex).filter(doesMatchSearch);
+
+  // --- ACTIONS ---
   const nextTutorial = () => {
     if (tutorialStep === 1) {
       setTutorialStep(2); setShowPastAnimation(true); setTimeout(() => setGridReady(true), 3000); 
@@ -282,8 +350,9 @@ function App() {
       setTutorialStep(3); // How to Use
     } else if (tutorialStep === 3) {
       setTutorialStep(4); setPreviewWeek(stats.weeksLived); // Try It Out
+    } else if (tutorialStep === 4) {
+      // Step 5: (Handled by openModal)
     } else {
-      // Step 5 (or any other) finishes the tutorial
       setTutorialStep(0);
       localStorage.setItem('tutorial_seen', 'true');
       setGridReady(true);
@@ -299,15 +368,6 @@ function App() {
     setShowPastAnimation(false);
     setPreviewWeek(null);
   };
-
-  const [rawSearch, setRawSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatColor, setNewCatColor] = useState('blue');
-  const [settingsTab, setSettingsTab] = useState('categories');
-  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
-  
-  const fileInputRef = useRef(null);
 
   // --- 1. HEARTBEAT ---
   useEffect(() => {
@@ -352,17 +412,6 @@ function App() {
     await LocalNotifications.schedule({ notifications: [{ title: "Mementus", body: "Time to log your week.", id: 1, schedule: { on: { weekday: 6, hour: 20, minute: 0 }, allowWhileIdle: true } }] });
     alert("Reminder enabled: Fridays at 8 PM.");
   };
-
-  const getCategoryStyle = useCallback((catKey) => {
-    const cat = categories[catKey] || categories.default;
-    if (!cat) return PRESET_COLORS.slate;
-    const colorKey = cat.colorKey || 'slate'; 
-    return { ...PRESET_COLORS[colorKey], label: cat.label };
-  }, [categories]);
-
-  const jumpToNow = useCallback(() => {
-    document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-  }, []);
 
   // --- 3. UNIFIED INTERACTION LOGIC ---
   const handleBoxClick = useCallback((weekIndex) => {
@@ -508,43 +557,6 @@ function App() {
     if (key === 'default') return;
     const newCats = { ...categories }; delete newCats[key];
     setCategories(newCats); localStorage.setItem('categories', JSON.stringify(newCats));
-  };
-
-  const doesMatchSearch = (entry) => {
-    if (!debouncedSearch) return true;
-    if (!entry) return false;
-    const text = typeof entry === 'string' ? entry : entry.text || '';
-    const title = typeof entry === 'object' ? entry.title || '' : '';
-    const catKey = typeof entry === 'object' ? entry.category : 'default';
-    const catLabel = categories[catKey]?.label || '';
-    const lowerQuery = debouncedSearch.toLowerCase();
-    const logMatches = entry.logs ? entry.logs.some(l => l.text.toLowerCase().includes(lowerQuery)) : false;
-    return text.toLowerCase().includes(lowerQuery) || title.toLowerCase().includes(lowerQuery) || logMatches;
-  };
-
-  const dashboardStats = useMemo(() => {
-    const entries = Object.values(intentions);
-    const totalMemories = entries.length;
-    const totalMilestones = entries.filter(e => typeof e === 'object' && e.isMilestone).length;
-    const catCounts = {};
-    Object.keys(categories).forEach(k => catCounts[k] = 0);
-    catCounts['default'] = 0;
-    entries.forEach(e => {
-      let key = typeof e === 'object' && e.category ? e.category : 'default';
-      if (!categories[key]) key = 'default';
-      catCounts[key] = (catCounts[key] || 0) + 1;
-    });
-    return { totalMemories, totalMilestones, catCounts };
-  }, [intentions, categories]);
-
-  const getSortedEntries = () => {
-    return Object.entries(intentions)
-      .map(([weekIndex, data]) => ({
-        weekIndex: parseInt(weekIndex),
-        ... (typeof data === 'string' ? { text: data, category: 'default', isMilestone: false } : data)
-      }))
-      .sort((a, b) => a.weekIndex - b.weekIndex)
-      .filter(entry => doesMatchSearch(entry));
   };
 
   if (!birthday) {
