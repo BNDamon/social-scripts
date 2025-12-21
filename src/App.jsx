@@ -13,11 +13,11 @@ const GLOBAL_STYLES = `
   }
 
   /* 2. The "Crossed Out" Texture for past weeks */
+  /* OPTIMIZATION: Removed opacity here to make grid brighter */
   .crossed-out {
     background-image: 
       linear-gradient(to top left,  transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%),
       linear-gradient(to top right, transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%);
-    opacity: 0.7;
     border-color: transparent !important;
   }
 
@@ -28,7 +28,7 @@ const GLOBAL_STYLES = `
       background-image: 
         linear-gradient(to top left,  transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%),
         linear-gradient(to top right, transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%);
-      opacity: 0.7;
+      opacity: 0.8; /* Brighter than before */
       border-color: transparent;
     }
   }
@@ -41,22 +41,44 @@ const GLOBAL_STYLES = `
   }
   .animate-bounce-slight { animation: bounceSlight 2s infinite; }
 
+  /* Prevent iOS Zoom on Inputs */
+  input, textarea, select { font-size: 16px !important; }
+   
+  /* Custom Range Slider for Touch */
+  input[type=range] { -webkit-appearance: none; background: transparent; }
+  input[type=range]:focus { outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: #22d3ee; margin-top: -10px; box-shadow: 0 0 15px rgba(34,211,238,0.6); border: 2px solid #fff; }
+  input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #374151; border-radius: 2px; }
+
   /* LANDSCAPE MODE OPTIMIZATIONS */
   @media (max-height: 500px) and (orientation: landscape) {
     .landscape-hide { display: none !important; }
     .landscape-compact { padding-top: 4px !important; padding-bottom: 4px !important; gap: 8px !important; }
     .landscape-row { flex-direction: row !important; align-items: center; justify-content: space-between; }
   }
+  
+  /* OPTIMIZATION: Browser Native Lazy Rendering for Grid */
+  .grid-container-optimized {
+     content-visibility: auto;
+     contain-intrinsic-size: 1200px 3000px; /* Estimates height to prevent scrollbar jumping */
+  }
+  /* Mobile specific estimate */
+  @media (max-width: 768px) {
+    .grid-container-optimized {
+        contain-intrinsic-size: 420px 5000px;
+    }
+  }
 `;
 
+// FIXED: Increased opacity from /30 to /50 for better visibility
 const DEFAULT_ERAS = [
-  { id: 'childhood', name: 'Early Childhood', startWeek: 0,   color: 'bg-cyan-600/30' },
-  { id: 'school',    name: 'School Age',      startWeek: 260, color: 'bg-blue-600/30' },  // 5 years * 52
-  { id: 'adult',     name: 'Early Adulthood', startWeek: 936, color: 'bg-indigo-600/30' }, // 18 years
-  { id: 'building',  name: 'Building Years',  startWeek: 1300, color: 'bg-violet-600/30' }, // 25 years
-  { id: 'midlife',   name: 'Mid-Life',        startWeek: 1820, color: 'bg-fuchsia-600/30' }, // 35 years
-  { id: 'later',     name: 'Later Life',      startWeek: 2600, color: 'bg-pink-600/30' },    // 50 years
-  { id: 'golden',    name: 'Golden Years',    startWeek: 3380, color: 'bg-rose-600/30' },    // 65 years
+  { id: 'childhood', name: 'Early Childhood', startWeek: 0,    color: 'bg-cyan-600/50' },
+  { id: 'school',    name: 'School Age',       startWeek: 260, color: 'bg-blue-600/50' },  // 5 years * 52
+  { id: 'adult',     name: 'Early Adulthood',  startWeek: 936, color: 'bg-indigo-600/50' }, // 18 years
+  { id: 'building',  name: 'Building Years',   startWeek: 1300, color: 'bg-violet-600/50' }, // 25 years
+  { id: 'midlife',   name: 'Mid-Life',         startWeek: 1820, color: 'bg-fuchsia-600/50' }, // 35 years
+  { id: 'later',     name: 'Later Life',       startWeek: 2600, color: 'bg-pink-600/50' },    // 50 years
+  { id: 'golden',    name: 'Golden Years',     startWeek: 3380, color: 'bg-rose-600/50' },    // 65 years
 ];
 
 const JOURNAL_PROMPTS = [
@@ -131,6 +153,7 @@ const LifeTrendChart = ({ data, color = "#22d3ee" }) => {
   );
 };
 
+// Optimization: Strict comparison for WeekBox to prevent unnecessary re-renders
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, isCurrent }) => {
   return (
     <div 
@@ -140,6 +163,11 @@ const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onCl
       id={`week-${weekIndex}`}
     />
   );
+}, (prev, next) => {
+    return prev.boxClass === next.boxClass && 
+           prev.opacityClass === next.opacityClass && 
+           prev.animDelay === next.animDelay && 
+           prev.isCurrent === next.isCurrent;
 });
 
 const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, isFuture, getDateStr, getEraName, tutorialMode, finishTutorial }) => {
@@ -161,8 +189,8 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   };
 
   const triggerOracle = () => {
-  const randomPrompt = JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
-  setPlaceholder(randomPrompt);
+    const randomPrompt = JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
+    setPlaceholder(randomPrompt);
   };
 
   const handleAddLog = () => {
@@ -307,7 +335,7 @@ function App() {
   // Chapter Settings Inputs
   const [newChapterName, setNewChapterName] = useState('');
   const [newChapterAge, setNewChapterAge] = useState('');
-  const [newChapterColor, setNewChapterColor] = useState('bg-blue-600/30');
+  const [newChapterColor, setNewChapterColor] = useState('bg-blue-600/50');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -473,7 +501,16 @@ function App() {
     return streak;
   }, [intentions, stats]);
   
-  const doesMatchSearch = useCallback((entry) => { if (!debouncedSearch) return true; if (!entry) return false; const q = debouncedSearch.toLowerCase(); const txt = typeof entry === 'string' ? entry : entry.text || ''; const ti = entry.title || ''; const cl = categories[entry.category]?.label || ''; return txt.toLowerCase().includes(q) || ti.toLowerCase().includes(q) || cl.toLowerCase().includes(q) || (entry.logs && entry.logs.some(l => l.text.toLowerCase().includes(q))); }, [debouncedSearch, categories]);
+  // Optimization: Early return for search
+  const doesMatchSearch = useCallback((entry) => { 
+    if (!debouncedSearch) return true; 
+    if (!entry) return false; 
+    const q = debouncedSearch.toLowerCase(); 
+    const txt = typeof entry === 'string' ? entry : entry.text || ''; 
+    const ti = entry.title || ''; 
+    const cl = categories[entry.category]?.label || ''; 
+    return txt.toLowerCase().includes(q) || ti.toLowerCase().includes(q) || cl.toLowerCase().includes(q) || (entry.logs && entry.logs.some(l => l.text.toLowerCase().includes(q))); 
+  }, [debouncedSearch, categories]);
   
   const dashboardStats = useMemo(() => { 
     const v = Object.values(intentions); 
@@ -710,7 +747,7 @@ function App() {
 
   if (!birthday) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6">
+      <div className="min-h-[100dvh] bg-[#050505] flex items-center justify-center p-6">
         <style>{GLOBAL_STYLES}</style>
         <div className="max-w-md w-full bg-[#1E1E1E]/80 backdrop-blur-xl p-8 rounded-2xl border border-cyan-900/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-center">
           <h1 className="text-4xl font-black text-white mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">MEMENTUS</h1>
@@ -727,7 +764,8 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] overflow-x-hidden text-white flex flex-col items-center relative pb-24 md:pb-10">
+    // OPTIMIZATION: Use dvh (Dynamic Viewport Height) to fix iOS address bar issue
+    <div className="min-h-[100dvh] bg-[#050505] overflow-x-hidden text-white flex flex-col items-center relative pb-24 md:pb-10">
       <style>{GLOBAL_STYLES}</style>
       
       {/* HEADER */}
@@ -877,7 +915,9 @@ function App() {
       {/* GRID VIEW */}
       {view === 'grid' && (
         <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y">
-           <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
+           {/* OPTIMIZATION: touch-pan-y prevents horizontal scroll issues on mobile */}
+           {/* OPTIMIZATION: w-full max-w-[1200px] improves responsiveness */}
+           <div className="grid-container-optimized flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] w-full md:max-w-[1200px] pb-32">
             {/* RENDER THE MEMOIZED GRID ITEMS HERE */}
             {gridItems}
           </div>
@@ -943,17 +983,26 @@ function App() {
 
       {/* Add this near your "Jump to Now" button at the bottom */}
       {view === 'grid' && !previewWeek && (
-        <>
-          {/* Existing Jump to Now Button */}
-          <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        <div className="fixed bottom-24 right-6 md:bottom-10 md:right-10 flex flex-col items-center gap-4 z-40">
+          
+          {/* 1. Time Travel Button (Small, on top) */}
+          <button 
+            onClick={handleShuffle} 
+            className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 group" 
+            title="Random Memory"
+          >
+             <span className="text-xl group-hover:rotate-180 transition-transform duration-500 block">🎲</span>
           </button>
 
-          {/* NEW: Time Travel Button */}
-          <button onClick={handleShuffle} className="fixed bottom-24 left-6 md:bottom-8 md:left-8 bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all hover:scale-110 z-40 group" title="Random Memory">
-              <span className="text-xl group-hover:rotate-180 transition-transform duration-500 block">🎲</span>
+          {/* 2. Jump to Now Button (Main, on bottom) */}
+          <button 
+            onClick={jumpToNow} 
+            className="bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 active:scale-95 group" 
+            title="Jump to Today"
+          >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
-        </>
+        </div>
       )}
 
       {/* STATS VIEW (EXPANDED) */}
@@ -998,7 +1047,7 @@ function App() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-gray-800 p-2 pb-6 flex md:hidden justify-around z-50">
          {['grid', 'timeline', 'milestones','stats'].map(v => (
-           <button key={v} onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${view === v ? 'text-white' : 'text-gray-600'}`}>
+           <button key={v} onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all active:scale-95 ${view === v ? 'text-white' : 'text-gray-600'}`}>
              {v === 'grid' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>}
              {v === 'timeline' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>}
              {v === 'milestones' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>}
@@ -1007,10 +1056,6 @@ function App() {
            </button>
          ))}
       </div>
-
-      {view === 'grid' && !previewWeek && (
-        <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></button>
-      )}
 
       {tooltip.show && <div className="fixed z-50 bg-[#222] border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none backdrop-blur-md animate-in fade-in duration-75 max-w-xs" style={{ top: tooltip.y, left: tooltip.x }}>{tooltip.content}</div>}
 
@@ -1044,7 +1089,7 @@ function App() {
                          <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" type="number" placeholder="Start Age (e.g. 25)" value={newChapterAge} onChange={e => setNewChapterAge(e.target.value)} />
                        </div>
                        <div className="mb-3 overflow-x-auto flex gap-2 pb-2">
-                          {['bg-blue-600/30','bg-red-600/30','bg-green-600/30','bg-purple-600/30','bg-pink-600/30','bg-yellow-600/30','bg-teal-600/30'].map(c => (
+                          {['bg-blue-600/50','bg-red-600/50','bg-green-600/50','bg-purple-600/50','bg-pink-600/50','bg-yellow-600/50','bg-teal-600/50'].map(c => (
                             <button key={c} onClick={() => setNewChapterColor(c)} className={`w-6 h-6 rounded flex-shrink-0 ${c} ${newChapterColor === c ? 'border-2 border-white' : 'border border-transparent'}`}></button>
                           ))}
                        </div>
