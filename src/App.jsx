@@ -1,9 +1,7 @@
-// src/App.jsx
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import confetti from 'canvas-confetti';
 
-// --- STYLES: Custom Animations & Textures ---
 const GLOBAL_STYLES = `
   /* 1. The initial "Burn In" load animation */
   @keyframes burnIn {
@@ -133,8 +131,6 @@ const LifeTrendChart = ({ data, color = "#22d3ee" }) => {
   );
 };
 
-// --- COMPONENT: WeekBox ---
-// Updated: Removed custom comparison for better stability, added ID for scrolling
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, isCurrent }) => {
   return (
     <div 
@@ -146,8 +142,6 @@ const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onCl
   );
 });
 
-// --- COMPONENT: MemoryModal ---
-// Updated: Future-Aware Logic, Image Compression, Conditional UI
 const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, isFuture, getDateStr, getEraName, tutorialMode, finishTutorial }) => {
   const [title, setTitle] = useState(initialData.title || '');
   const [text, setText] = useState(initialData.text || ''); 
@@ -168,8 +162,6 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
 
   const triggerOracle = () => {
   const randomPrompt = JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
-  // If text is empty, set it as placeholder. If they want to insert it, we can append.
-  // Let's just set the placeholder to inspire them without cluttering the text.
   setPlaceholder(randomPrompt);
   };
 
@@ -181,7 +173,6 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   const handleRemoveLog = (id) => setLogs(logs.filter(l => l.id !== id));
   
   const handleSave = () =>{
-    // Only fire confetti if it's a real memory (past/present), not a future goal
     if(isCurrentWeek || !isFuture) {
       confetti({
         particleCount: 100,
@@ -855,26 +846,6 @@ function App() {
         </div>
       )}
 
-      {view === 'stats' && (
-        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 pb-20 animate-in fade-in duration-500 mt-12 md:mt-20">
-           {/* STATS CARDS */}
-           <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Memories</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70 text-center">Milestones</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70 text-center">Docs Rate</span></div>
-             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Weeks Left</span></div>
-          </div>
-          
-          {/* CHART: This was missing in your screenshot! */}
-          <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800">
-             <LifeTrendChart data={dashboardStats.trendData} />
-          </div>
-
-          {/* LIFE BALANCE */}
-          <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800"><h3 className="text-xl font-bold mb-6">Life Balance</h3><div className="space-y-4">{Object.entries(categories).map(([key, val]) => { const styles = getCategoryStyle(key); const count = dashboardStats.catCounts[key] || 0; const percent = dashboardStats.totalMemories > 0 ? (count / dashboardStats.totalMemories) * 100 : 0; if (count === 0 && key !== 'default') return null; return ( <div key={key}><div className="flex justify-between text-xs uppercase font-bold mb-1"><span className={styles.text}>{val.label}</span><span className="text-gray-500">{count} ({Math.round(percent)}%)</span></div><div className="w-full bg-gray-900 rounded-full h-3 overflow-hidden"><div className={`h-full ${styles.bg} transition-all duration-1000`} style={{ width: `${percent}%` }}></div></div></div> ); })}</div></div>
-        </div>
-      )}
-
       {/* --- WIDGETS (Flashback & Goal) --- */}
       {view === 'grid' && (
         <>
@@ -1018,6 +989,9 @@ function App() {
                 );
               })}
             </div>
+            <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800">
+             <LifeTrendChart data={dashboardStats.trendData} />
+          </div>
           </div>
         </div>
       )}
