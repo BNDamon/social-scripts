@@ -51,15 +51,27 @@ const GLOBAL_STYLES = `
   }
 `;
 
-// --- CONSTANTS ---
-const ERAS = [
-  { name: 'Early Childhood', ageLimit: 5,  color: 'bg-cyan-600/30' },
-  { name: 'School Age',      ageLimit: 18, color: 'bg-blue-600/30' },
-  { name: 'Early Adulthood', ageLimit: 25, color: 'bg-indigo-600/30' },
-  { name: 'The Building Years', ageLimit: 35, color: 'bg-violet-600/30' },
-  { name: 'Mid-Life',        ageLimit: 50, color: 'bg-fuchsia-600/30' },
-  { name: 'Later Life',      ageLimit: 65, color: 'bg-pink-600/30' },
-  { name: 'Golden Years',    ageLimit: 90, color: 'bg-rose-600/30' },
+const DEFAULT_ERAS = [
+  { id: 'childhood', name: 'Early Childhood', startWeek: 0,   color: 'bg-cyan-600/30' },
+  { id: 'school',    name: 'School Age',      startWeek: 260, color: 'bg-blue-600/30' },  // 5 years * 52
+  { id: 'adult',     name: 'Early Adulthood', startWeek: 936, color: 'bg-indigo-600/30' }, // 18 years
+  { id: 'building',  name: 'Building Years',  startWeek: 1300, color: 'bg-violet-600/30' }, // 25 years
+  { id: 'midlife',   name: 'Mid-Life',        startWeek: 1820, color: 'bg-fuchsia-600/30' }, // 35 years
+  { id: 'later',     name: 'Later Life',      startWeek: 2600, color: 'bg-pink-600/30' },    // 50 years
+  { id: 'golden',    name: 'Golden Years',    startWeek: 3380, color: 'bg-rose-600/30' },    // 65 years
+];
+
+const JOURNAL_PROMPTS = [
+  "What was the highlight of this week?",
+  "Who made you smile this week?",
+  "What is one thing you learned?",
+  "Did you try anything new?",
+  "What was a challenge you overcame?",
+  "How did you spend your free time?",
+  "What music were you listening to?",
+  "Rate your energy levels this week.",
+  "What is one thing you are grateful for?",
+  "Who did you enjoy spending time with?"
 ];
 
 const PRESET_COLORS = {
@@ -98,44 +110,67 @@ const WRITING_PROMPTS = [
   "Did you try anything new?"
 ];
 
+const LifeTrendChart = ({ data, color = "#22d3ee" }) => {
+  if (!data || data.length < 2) return <div className="text-xs text-gray-500 italic p-4 text-center border border-gray-800 rounded-lg">Log at least 2 weeks with ratings to see your trend.</div>;
+  const height = 100; const maxVal = 10;
+  const points = data.map((val, i) => { const x = (i / (data.length - 1)) * 300; const y = height - (val / maxVal) * height; return `${x},${y}`; }).join(' ');
+  const avg = Math.round((data.reduce((a,b) => a + b, 0) / data.length) * 10) / 10;
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      <div className="flex justify-between items-end px-1">
+        <div><span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">Happiness Trend</span><span className="text-[10px] text-gray-600">Last 52 Weeks</span></div>
+        <div className="text-right"><span className="text-2xl font-black" style={{ color }}>{avg}</span><span className="text-[10px] text-gray-500 font-bold uppercase ml-1">AVG</span></div>
+      </div>
+      <div className="relative h-[120px] w-full bg-gradient-to-b from-gray-900/50 to-transparent rounded-xl border border-gray-800/50 overflow-hidden shadow-inner">
+        <div className="absolute top-1/4 left-0 right-0 border-t border-dashed border-gray-800/50"></div><div className="absolute top-2/4 left-0 right-0 border-t border-dashed border-gray-800/50"></div><div className="absolute top-3/4 left-0 right-0 border-t border-dashed border-gray-800/50"></div>
+        <svg height="100%" width="100%" viewBox={`0 0 300 ${height}`} preserveAspectRatio="none" className="overflow-visible absolute top-3 left-0 right-0 px-2">
+          <defs><linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.2" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+          <polygon points={`0,${height} ${points} 300,${height}`} fill="url(#gradient)" /><polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+      </div>
+    </div>
+  );
+};
+
 // --- COMPONENT: WeekBox ---
-const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, onMouseEnter, onMouseLeave, isCurrent }) => {
+// Updated: Removed custom comparison for better stability, added ID for scrolling
+const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, isCurrent }) => {
   return (
     <div 
       className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
       style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
-      onMouseEnter={(e) => onMouseEnter(e, weekIndex)} 
-      onMouseLeave={onMouseLeave}
-      id={isCurrent ? "current-week-box" : undefined}
+      id={`week-${weekIndex}`}
     />
-  );
-}, (prev, next) => {
-  return (
-    prev.boxClass === next.boxClass &&
-    prev.opacityClass === next.opacityClass &&
-    prev.isCurrent === next.isCurrent &&
-    prev.animDelay === next.animDelay
   );
 });
 
 // --- COMPONENT: MemoryModal ---
-// --- COMPONENT: MemoryModal (Updated for Side-by-Side Tutorial) ---
-const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, getDateStr, getEraName, tutorialMode, finishTutorial }) => {
+// Updated: Future-Aware Logic, Image Compression, Conditional UI
+const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCurrentWeek, isFuture, getDateStr, getEraName, tutorialMode, finishTutorial }) => {
   const [title, setTitle] = useState(initialData.title || '');
   const [text, setText] = useState(initialData.text || ''); 
   const [rating, setRating] = useState(initialData.rating || 5);
-  const [image, setImage] = useState(initialData.image || '');
   const [isMilestone, setIsMilestone] = useState(initialData.isMilestone || false);
   const [category, setCategory] = useState(initialData.category || 'default');
   const [logs, setLogs] = useState(initialData.logs || []);
   const [newLogText, setNewLogText] = useState('');
   const [newLogTag, setNewLogTag] = useState('');
-
+  const fileUploadRef = useRef(null);
   const [currentPrompt, setCurrentPrompt] = useState('');
+  const [placeholder, setPlaceholder] = useState(isFuture ? "Steps to achieve this..." : "Weekly summary...");
+
   const rollDice = () => {
     const random = WRITING_PROMPTS[Math.floor(Math.random() * WRITING_PROMPTS.length)];
     setCurrentPrompt(random);
+  };
+
+  const triggerOracle = () => {
+  const randomPrompt = JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
+  // If text is empty, set it as placeholder. If they want to insert it, we can append.
+  // Let's just set the placeholder to inspire them without cluttering the text.
+  setPlaceholder(randomPrompt);
   };
 
   const handleAddLog = () => {
@@ -144,15 +179,19 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
     setLogs([...logs, newEntry]); setNewLogText(''); setNewLogTag('');
   };
   const handleRemoveLog = (id) => setLogs(logs.filter(l => l.id !== id));
+  
   const handleSave = () =>{
-    confetti({
-    particleCount: 100,
-    spread: 70,
-    origin: { y: 0.6 },
-    colors: ['#06b6d4', '#ffffff', '#fbbf24'] // Cyan, White, Amber
-  });
-  onSave({ title, text, rating, image, isMilestone, category, logs });  
-};
+    // Only fire confetti if it's a real memory (past/present), not a future goal
+    if(isCurrentWeek || !isFuture) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#06b6d4', '#ffffff', '#fbbf24']
+      });
+    }
+    onSave({ title, text, rating, isMilestone, category, logs });  
+  };
   
   const getCategoryStyle = (catKey) => {
     const cat = categories[catKey] || categories.default;
@@ -161,10 +200,9 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[150] backdrop-blur-sm overflow-hidden">
-      {/* FLEX CONTAINER: Holds Sidecar (optional) + Main Modal side-by-side */}
       <div className={`flex flex-col md:flex-row items-center justify-center gap-6 transition-all duration-500 ${tutorialMode ? 'w-full max-w-6xl' : 'w-full max-w-lg'}`}>
 
-        {/* --- 1. TUTORIAL SIDECAR (Appears on the left) --- */}
+        {/* --- TUTORIAL SIDECAR --- */}
         {tutorialMode && (
           <div className="w-full md:w-80 bg-[#0a0a0a] border border-cyan-500/50 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-left-8 duration-700 flex-shrink-0 order-2 md:order-1">
              <h3 className="text-xl font-black text-white mb-6 tracking-wide border-b border-gray-800 pb-4">LOGGING A MEMORY</h3>
@@ -177,10 +215,6 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
                   <div className="bg-gray-800 h-10 w-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0">📊</div>
                   <div><strong className="text-white block mb-1">Rating</strong>Score your week 1-10. Be honest. This builds your life graph.</div>
                 </div>
-                <div className="flex gap-4">
-                  <div className="bg-gray-800 h-10 w-10 flex items-center justify-center rounded-lg text-xl flex-shrink-0">📝</div>
-                  <div><strong className="text-white block mb-1">Journal</strong>Log specific moments using the <b>+</b> button below.</div>
-                </div>
              </div>
              <button onClick={finishTutorial} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] mt-8">
                Start Using Mementus
@@ -188,60 +222,82 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
           </div>
         )}
 
-        {/* --- 2. MAIN MODAL FORM --- */}
-        <div className="bg-[#1E1E1E] border border-gray-800 shadow-2xl rounded-2xl w-full flex flex-col max-h-[90vh] overflow-hidden flex-shrink-0 order-1 md:order-2 md:max-w-lg">
+        {/* --- MAIN MODAL FORM --- */}
+        <div className={`bg-[#1E1E1E] border ${isFuture ? 'border-dashed border-gray-600' : 'border-gray-800'} shadow-2xl rounded-2xl w-full flex flex-col max-h-[90vh] overflow-hidden flex-shrink-0 order-1 md:order-2 md:max-w-lg`}>
           <div className="p-6 border-b border-gray-800 bg-[#1E1E1E] z-10">
             <div className="flex justify-between items-center mb-1">
-              <h2 className="text-xl font-bold text-white">{isCurrentWeek ? "Log This Week" : "Edit Memory"}</h2>
+              {/* Dynamic Header */}
+              <h2 className="text-xl font-bold text-white">{isCurrentWeek ? "Log This Week" : (isFuture ? "Set Future Goal" : "Edit Memory")}</h2>
               <button onClick={() => setIsMilestone(!isMilestone)} className={`text-2xl transition-transform ${isMilestone ? 'scale-110' : 'opacity-30 hover:opacity-100'}`} title="Milestone">{isMilestone ? '⭐' : '☆'}</button>
             </div>
             <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2"><span className="text-cyan-500">{getDateStr}</span><span>•</span>{getEraName}</p>
           </div>
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <div className="space-y-4">
-              <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder="Headline" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder={isFuture ? "Goal Title (e.g. Marathon)" : "Headline"} value={title} onChange={(e) => setTitle(e.target.value)} />
+              
               <div className="flex gap-2">
-                 <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-500">RATING</span>
-                    <div className="flex items-center gap-2">
-                      <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
-                      <span className="text-yellow-500 text-xs font-bold">{rating}</span>
+                  {/* Hide Rating if setting a future goal */}
+                  {!isFuture && (
+                    <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-500">RATING</span>
+                      <div className="flex items-center gap-2">
+                        <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                        <span className="text-yellow-500 text-xs font-bold">{rating}</span>
+                      </div>
                     </div>
-                 </div>
-                 <div className="flex-1 bg-black/30 p-2 rounded-lg border border-gray-800 overflow-x-auto no-scrollbar flex items-center">
+                  )}
+                  <div className="flex-1 bg-black/30 p-2 rounded-lg border border-gray-800 overflow-x-auto no-scrollbar flex items-center">
                     <div className="flex gap-2">
                       {Object.entries(categories).map(([key, val]) => {
                         const styles = getCategoryStyle(key);
                         return ( <button key={key} onClick={() => setCategory(key)} className={`flex-shrink-0 px-2 py-1 rounded text-[10px] font-bold transition-all border ${category === key ? styles.bg + ' text-white border-transparent' : 'bg-transparent text-gray-500 border-gray-700'}`}>{val.label}</button>);
                       })}
                     </div>
-                 </div>
-              </div>
-              <textarea className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[80px] resize-none text-sm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Weekly summary..." />
-              <input className="w-full bg-black/50 text-gray-400 text-xs p-3 rounded-lg border border-gray-800 focus:border-gray-600 outline-none" placeholder="Image URL (https://...)" value={image} onChange={(e) => setImage(e.target.value)} />
-            </div>
-            <div className="border-t border-gray-800 pt-6">
-              <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Daily Journal</h3>
-              <div className="space-y-2 mb-4">
-                {logs.map(log => (
-                  <div key={log.id} className="flex gap-3 bg-black/30 p-3 rounded border border-gray-800 group">
-                    <span className="text-[10px] font-bold text-cyan-500 bg-cyan-900/20 px-2 py-1 rounded h-fit uppercase">{log.tag}</span>
-                    <span className="text-sm text-gray-300 flex-1">{log.text}</span>
-                    <button onClick={() => handleRemoveLog(log.id)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">×</button>
                   </div>
-                ))}
-                {logs.length === 0 && <div className="text-center text-xs text-gray-700 py-2 italic">No daily logs yet.</div>}
               </div>
-              <div className="flex gap-2">
-                <input className="w-20 bg-black/50 text-white text-xs p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none uppercase font-bold text-center" placeholder="DAY" value={newLogTag} onChange={(e) => setNewLogTag(e.target.value)} />
-                <input className="flex-1 bg-black/50 text-white text-sm p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none" placeholder="Add entry..." value={newLogText} onChange={(e) => setNewLogText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddLog()} />
-                <button onClick={handleAddLog} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700 text-lg">+</button>
-              </div>
+              
+              <textarea 
+                className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[100px] resize-none text-base pr-10" // Added pr-10 for button space
+                value={text} 
+                onChange={(e) => setText(e.target.value)} 
+                placeholder={placeholder} // Uses dynamic placeholder
+              />
+              {/* THE ORACLE BUTTON */}
+              <button 
+                onClick={triggerOracle} 
+                className="absolute top-3 right-3 text-gray-500 hover:text-cyan-400 transition-colors text-lg" 
+                title="Get a writing prompt"
+              >
+                🎲
+              </button>
             </div>
+            
+            {/* Hide daily logs for future goals to keep UI clean */}
+            {!isFuture && (
+              <div className="border-t border-gray-800 pt-6">
+                <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Daily Journal</h3>
+                <div className="space-y-2 mb-4">
+                  {logs.map(log => (
+                    <div key={log.id} className="flex gap-3 bg-black/30 p-3 rounded border border-gray-800 group">
+                      <span className="text-[10px] font-bold text-cyan-500 bg-cyan-900/20 px-2 py-1 rounded h-fit uppercase">{log.tag}</span>
+                      <span className="text-sm text-gray-300 flex-1">{log.text}</span>
+                      <button onClick={() => handleRemoveLog(log.id)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">×</button>
+                    </div>
+                  ))}
+                  {logs.length === 0 && <div className="text-center text-xs text-gray-700 py-2 italic">No daily logs yet.</div>}
+                </div>
+                <div className="flex gap-2">
+                  <input className="w-20 bg-black/50 text-white text-xs p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none uppercase font-bold text-center" placeholder="DAY" value={newLogTag} onChange={(e) => setNewLogTag(e.target.value)} />
+                  <input className="flex-1 bg-black/50 text-white text-sm p-3 rounded-lg border border-gray-800 focus:border-cyan-500 outline-none" placeholder="Add entry..." value={newLogText} onChange={(e) => setNewLogText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddLog()} />
+                  <button onClick={handleAddLog} className="bg-gray-800 hover:bg-gray-700 text-white px-4 rounded-lg border border-gray-700 text-lg">+</button>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 border-t border-gray-800 bg-[#1E1E1E] flex gap-3">
+          <div className="p-4 border-t   border-gray-800 bg-[#1E1E1E] flex gap-3">
             <button onClick={onClose} className="flex-1 py-3 text-gray-400 hover:text-white transition-colors">Cancel</button>
-            <button onClick={handleSave} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg hover:scale-[1.02] transition-transform ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>SAVE ENTRY</button>
+            <button onClick={handleSave} className={`flex-1 text-black font-bold py-3 rounded-lg shadow-lg hover:scale-[1.02] transition-transform ${isMilestone ? 'bg-amber-400 hover:bg-amber-300' : 'bg-white hover:bg-gray-200'}`}>{isFuture ? "SET GOAL" : "SAVE ENTRY"}</button>
           </div>
         </div>
       </div>
@@ -254,8 +310,13 @@ function App() {
   const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
   const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
   const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
+  const [eras, setEras] = useState(() => JSON.parse(localStorage.getItem('eras') || JSON.stringify(DEFAULT_ERAS)));
   
   const [view, setView] = useState('grid');
+  // Chapter Settings Inputs
+  const [newChapterName, setNewChapterName] = useState('');
+  const [newChapterAge, setNewChapterAge] = useState('');
+  const [newChapterColor, setNewChapterColor] = useState('bg-blue-600/30');
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -279,6 +340,17 @@ function App() {
   const [settingsTab, setSettingsTab] = useState('categories');
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: null });
   const fileInputRef = useRef(null);
+
+  const getEraForWeek = (weekIndex) => { 
+    // Sort eras by start week to ensure we check in order
+    const sortedEras = [...eras].sort((a, b) => a.startWeek - b.startWeek);
+    for (let i = sortedEras.length - 1; i >= 0; i--) {
+      if (weekIndex >= sortedEras[i].startWeek) {
+        return { name: sortedEras[i].name, color: sortedEras[i].color };
+      }
+    }
+    return { name: 'Unknown', color: 'bg-gray-800' };
+  };
   
   const getDateFromWeekIndex = (weekIndex) => {
     if (!birthday) return "";
@@ -288,7 +360,6 @@ function App() {
   };
   
   const getAgeFromWeekIndex = (weekIndex) => Math.floor(weekIndex / 52);
-  const getEraForWeek = (weekIndex) => { const y = weekIndex / 52; for (let e of ERAS) if (y < e.ageLimit) return e; return ERAS[ERAS.length - 1]; };
   const getCategoryStyle = useCallback((catKey) => { const c = categories[catKey] || categories.default; return { ...PRESET_COLORS[c.colorKey || 'slate'], label: c.label }; }, [categories]);
   
   const getLifeStats = useMemo(() => {
@@ -301,30 +372,105 @@ function App() {
   }, [birthday]);
   const stats = getLifeStats;
 
-  const jumpToNow = useCallback(() => {
-    document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-  }, []);
+  const handleShuffle = () => {
+    // 1. Get all weeks that have data (title or text) and are in the past
+    const filledIndices = Object.keys(intentions).filter(k => {
+      const entry = intentions[k];
+      return parseInt(k) < stats.weeksLived && (entry.title || entry.text);
+    });
 
-  const getFlashback = () => {
+    if (filledIndices.length === 0) {
+      alert("Log some memories first!");
+      return;
+    }
+
+    // 2. Pick a random index
+    const randomIndex = filledIndices[Math.floor(Math.random() * filledIndices.length)];
+    const numericIndex = parseInt(randomIndex);
+
+    // 3. Zoom to it
+    setView('grid');
+    
+    // Small timeout to let view switch if needed
+    setTimeout(() => {
+        const el = document.getElementById(`week-${numericIndex}`);
+        if(el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Add a little highlight effect or confetti?
+            handleBoxClick(numericIndex);
+        }
+    }, 100);
+  };
+
+  // Optimized Navigation: Uses IDs for reliability
+  const jumpToNow = useCallback(() => {
+    const el = document.getElementById(`week-${stats.weeksLived}`);
+    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  }, [stats.weeksLived]);
+
+  const addChapter = () => {
+    if (!newChapterName || !newChapterAge) return;
+    const startWeek = Math.floor(parseFloat(newChapterAge) * 52);
+    const newEra = { id: Date.now().toString(), name: newChapterName, startWeek, color: newChapterColor };
+    const updatedEras = [...eras, newEra].sort((a,b) => a.startWeek - b.startWeek);
+    setEras(updatedEras);
+    localStorage.setItem('eras', JSON.stringify(updatedEras));
+    setNewChapterName(''); setNewChapterAge('');
+  };
+
+  const deleteChapter = (id) => {
+    if (eras.length <= 1) { alert("You must have at least one chapter."); return; }
+    const updatedEras = eras.filter(e => e.id !== id);
+    setEras(updatedEras);
+    localStorage.setItem('eras', JSON.stringify(updatedEras));
+  };
+
+  // Flashback Logic (1 Year Ago)
+  const getFlashback = useMemo(() => {
     const oneYearAgoIndex = stats.weeksLived - 52;
     const entry = intentions[oneYearAgoIndex];
-    if (entry) {
+    if (entry && (entry.title || entry.text)) {
       return (
-        <div className="w-full max-w-[1200px] mb-4 landscape-hide">
-          <div className="bg-gray-900 border border-gray-800 p-4 rounded-lg flex items-center justify-between cursor-pointer hover:bg-gray-800 transition-colors" onClick={() => handleBoxClick(oneYearAgoIndex)}>
-            <div>
-               <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1">One Year Ago</p>
-               <h4 className="text-white font-bold">{entry.title || "Untitled Memory"}</h4>
-            </div>
-            <span className="text-2xl">↺</span>
-          </div>
+        <div className="w-full max-w-[1200px] mb-4 landscape-hide animate-in slide-in-from-top duration-700">
+           <div 
+             className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/30 p-4 rounded-xl flex items-center justify-between cursor-pointer hover:bg-indigo-900/60 transition-all group"
+             onClick={() => {
+                const el = document.getElementById(`week-${oneYearAgoIndex}`);
+                if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                openModal(oneYearAgoIndex);
+             }}
+           >
+              <div className="flex gap-4 items-center">
+                 <div className="h-10 w-10 bg-indigo-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(99,102,241,0.5)] group-hover:scale-110 transition-transform">↺</div>
+                 <div>
+                    <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Time Capsule • 1 Year Ago</p>
+                    <h4 className="text-white font-bold text-sm">{entry.title || "Untitled Memory"}</h4>
+                 </div>
+              </div>
+              <span className="text-indigo-400 text-xs font-bold group-hover:translate-x-1 transition-transform">OPEN &rarr;</span>
+           </div>
         </div>
       );
     }
     return null;
-  };
+  }, [stats.weeksLived, intentions]);
 
-  // 2. Streak Calculation
+  // Next Goal Engine
+  const nextGoal = useMemo(() => {
+    if(!gridReady) return null;
+    const current = stats.weeksLived;
+    const futureEntries = Object.entries(intentions)
+      .filter(([k, v]) => parseInt(k) > current && (v.title || v.text))
+      .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    
+    if (futureEntries.length > 0) {
+      const [weekIndex, data] = futureEntries[0];
+      return { title: data.title || "Upcoming Goal", weeksLeft: parseInt(weekIndex) - current, weekIndex: parseInt(weekIndex) };
+    }
+    return null;
+  }, [intentions, stats, gridReady]);
+
+  // 2. Streak Calculation (Re-included)
   const currentStreak = useMemo(() => {
     let streak = 0;
     let current = stats.weeksLived;
@@ -336,10 +482,14 @@ function App() {
     return streak;
   }, [intentions, stats]);
   
-  const doesMatchSearch = (entry) => { if (!debouncedSearch) return true; if (!entry) return false; const q = debouncedSearch.toLowerCase(); const txt = typeof entry === 'string' ? entry : entry.text || ''; const ti = entry.title || ''; const cl = categories[entry.category]?.label || ''; return txt.toLowerCase().includes(q) || ti.toLowerCase().includes(q) || cl.toLowerCase().includes(q) || (entry.logs && entry.logs.some(l => l.text.toLowerCase().includes(q))); };
+  const doesMatchSearch = useCallback((entry) => { if (!debouncedSearch) return true; if (!entry) return false; const q = debouncedSearch.toLowerCase(); const txt = typeof entry === 'string' ? entry : entry.text || ''; const ti = entry.title || ''; const cl = categories[entry.category]?.label || ''; return txt.toLowerCase().includes(q) || ti.toLowerCase().includes(q) || cl.toLowerCase().includes(q) || (entry.logs && entry.logs.some(l => l.text.toLowerCase().includes(q))); }, [debouncedSearch, categories]);
   
-  const dashboardStats = useMemo(() => { const v = Object.values(intentions); return { totalMemories: v.length, totalMilestones: v.filter(e => e.isMilestone).length, catCounts: v.reduce((acc, e) => { acc[e.category||'default'] = (acc[e.category||'default'] || 0) + 1; return acc; }, {}) }; }, [intentions]);
-  
+  const dashboardStats = useMemo(() => { 
+    const v = Object.values(intentions); 
+    const trendData = Object.entries(intentions).filter(([k, val]) => parseInt(k) <= stats.weeksLived && val.rating).sort((a, b) => parseInt(a[0]) - parseInt(b[0])).slice(-52).map(([_, val]) => val.rating);
+    return { totalMemories: v.length, totalMilestones: v.filter(e => e.isMilestone).length, catCounts: v.reduce((acc, e) => { acc[e.category||'default'] = (acc[e.category||'default'] || 0) + 1; return acc; }, {}), trendData }; 
+  }, [intentions, stats]);
+
   const getSortedEntries = () => Object.entries(intentions).map(([i, d]) => ({ weekIndex: parseInt(i), ...(typeof d === 'string' ? { text: d } : d) })).sort((a, b) => a.weekIndex - b.weekIndex).filter(doesMatchSearch);
 
   // --- ACTIONS ---
@@ -394,7 +544,7 @@ function App() {
       switch(e.key.toLowerCase()) {
         case 'k': case '/': e.preventDefault(); document.querySelector('input[type="text"]')?.focus(); break;
         case 'escape': setShowModal(false); setShowSettings(false); setRawSearch(''); setPreviewWeek(null); break;
-        case 't': document.getElementById("current-week-box")?.scrollIntoView({ behavior: 'smooth', block: 'center' }); break;
+        case 't': jumpToNow(); break;
         case 'g': setView('grid'); break;
         case 'l': setView('timeline'); break;
         case 's': setView('stats'); break;
@@ -402,7 +552,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [jumpToNow]);
 
   // --- DATA ---
   const scheduleNotification = async () => {
@@ -413,7 +563,6 @@ function App() {
     alert("Reminder enabled: Fridays at 8 PM.");
   };
 
-  // --- 3. UNIFIED INTERACTION LOGIC ---
   const handleBoxClick = useCallback((weekIndex) => {
     setPreviewWeek(weekIndex);
   }, []);
@@ -438,49 +587,58 @@ function App() {
     }
   };
 
-  const onBoxEnter = useCallback((e, weekIndex) => {
-    if (window.innerWidth < 768) return; 
-    if (!e?.target) return;
-    const rect = e.target.getBoundingClientRect();
-    const x = rect.left + window.scrollX + 15;
-    const y = rect.top + window.scrollY + 15;
-
-    const entry = intentions[weekIndex];
-    const isPast = weekIndex < stats.weeksLived;
-    const isFuture = weekIndex > stats.weeksLived;
-    const isCurrent = weekIndex === stats.weeksLived;
-    const dateStr = getDateFromWeekIndex(weekIndex);
-    const era = getEraForWeek(weekIndex);
+  // --- PERFORMANCE: MEMOIZED GRID ITEMS ---
+  const gridItems = useMemo(() => {
+    if (!birthday) return [];
     
-    let content = null;
-    if (isCurrent) content = <div className="font-bold text-cyan-400">THIS WEEK</div>;
-    else if (isPast && entry) {
-        const catKey = entry.category || 'default';
-        const styles = getCategoryStyle(catKey);
-        content = (
-          <div className="text-left">
-            <div className="text-[10px] uppercase font-bold text-gray-500 mb-1 flex justify-between">
-              <span>{dateStr}</span><span className="text-yellow-500 text-xs">{entry.rating ? `${entry.rating}/10` : ''}</span>
-            </div>
-            <div className="font-bold text-sm mb-1 text-white">{entry.title ? entry.title : (entry.isMilestone ? "⭐ Milestone" : styles.label)}</div>
-            {entry.image && <div className="w-full h-20 bg-cover bg-center rounded mb-2 border border-white/10" style={{ backgroundImage: `url(${entry.image})` }}></div>}
-            <div className="text-xs text-gray-400 max-w-[200px] leading-tight line-clamp-4">{entry.text}</div>
-            {entry.logs && entry.logs.length > 0 && <div className="mt-1 text-[10px] text-cyan-500 font-bold">+{entry.logs.length} entries</div>}
-          </div>
-        );
-    } else if (isFuture && entry) {
-         content = (
-            <div className="text-left">
-              <div className="text-[10px] uppercase font-bold text-gray-500 mb-1">{dateStr}</div>
-              <div className="font-bold text-sm text-cyan-400 mb-1">🎯 {entry.title || "Goal"}</div>
-              <div className="text-xs text-gray-400 max-w-[200px] leading-tight">{entry.text}</div>
-            </div>
-        );
-    } else {
-        content = <div className="text-left"><div className="text-[10px] uppercase font-bold text-gray-600">{dateStr}</div><div className="text-xs text-gray-600">{era.name}</div></div>;
-    }
-    setTooltip(prev => { if (prev.show && prev.x === x && prev.y === y) return prev; return { show: true, x, y, content }; });
-  }, [intentions, categories, stats, getCategoryStyle]);
+    return Array.from({ length: stats.totalWeeks }).map((_, i) => {
+      const isPastRaw = i < stats.weeksLived;
+      const isPast = isPastRaw && gridReady;
+      const isCurrent = i === stats.weeksLived;
+      const isFuture = i > stats.weeksLived;
+      const entry = intentions[i];
+      const era = getEraForWeek(i);
+      
+      const isMatch = doesMatchSearch(entry);
+      // Optimization check:
+      const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
+      const isPreview = i === previewWeek;
+      
+      // NEW: Path Logic
+      const isFutureTarget = previewWeek !== null && previewWeek > stats.weeksLived;
+      const isInPath = isFutureTarget && i > stats.weeksLived && i < previewWeek;
+      
+      const isAnimatingPast = isPastRaw && !gridReady && showPastAnimation;
+
+      let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
+      const crossOutAnimDelay = isAnimatingPast ? `${(i / stats.weeksLived) * 2.5}s` : undefined;
+      
+      if (isPreview) {
+          boxClass += " bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,1)] z-50 scale-150 border border-white";
+      } else if (isInPath) {
+          // Path Highlight
+          boxClass += " bg-cyan-900/40 animate-pulse z-10 scale-110"; 
+      } else if (isPast) {
+        if (entry) {
+          const styles = getCategoryStyle(entry.category || 'default');
+          boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
+          if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_20px_rgba(251,191,36,1)] z-20 animate-pulse cursor-pointer hover:scale-150";
+        } else { boxClass += ` ${era.color} crossed-out cursor-pointer hover:brightness-125`; }
+      } else if (isAnimatingPast) {
+        boxClass += ` ${era.color} crossed-out animate-cross-out cursor-pointer`;
+      } else if (isCurrent) { boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
+      } else if (isFuture) {
+        boxClass += " bg-transparent border border-white/5 hover:border-white/20 cursor-pointer"; 
+        if (entry) {
+          const styles = getCategoryStyle(entry.category || 'default');
+          boxClass = `bg-transparent border-2 border-dashed ${styles.border} shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10 hover:scale-125`; 
+          if (entry.isMilestone) boxClass = "bg-transparent border-2 border-dashed border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)] hover:scale-125";
+        }
+      }
+      
+      return ( <WeekBox key={i} weekIndex={i} boxClass={boxClass} opacityClass={opacityClass} animDelay={crossOutAnimDelay} onClick={handleBoxClick} isCurrent={isCurrent} /> );
+    });
+  }, [stats, intentions, gridReady, showPastAnimation, previewWeek, debouncedSearch, birthday, getCategoryStyle, handleBoxClick, doesMatchSearch]);
 
   const onBoxLeave = useCallback(() => { setTooltip(prev => ({ ...prev, show: false })); }, []);
 
@@ -511,7 +669,7 @@ function App() {
   const saveIntention = (modalData) => {
     if (selectedWeek === null) return;
     const newIntentions = { ...intentions };
-    const isEmpty = !modalData.text.trim() && !modalData.title.trim() && !modalData.image.trim() && modalData.logs.length === 0;
+    const isEmpty = !modalData.text.trim() && !modalData.title.trim() && modalData.logs.length === 0;
     if (isEmpty) { delete newIntentions[selectedWeek]; } else { newIntentions[selectedWeek] = modalData; }
     setIntentions(newIntentions);
     localStorage.setItem('intentions', JSON.stringify(newIntentions));
@@ -522,7 +680,7 @@ function App() {
     const data = { dob: birthday, intentions: intentions, categories: categories, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a"); link.href = url; link.download = `memento-mori-backup.json`;
+    const link = document.createElement("a"); link.href = url; link.download = `mementus-backup.json`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
@@ -586,20 +744,36 @@ function App() {
         <div className="flex flex-row justify-between items-end gap-4 landscape-row w-full">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">LIFE GRID</h1>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-gray-500 text-xs md:text-sm">
+                <span className="text-white font-bold">{stats.weeksLived}</span> Weeks Lived
+              </p>
+              
+              {/* NEW: MORTAL PROGRESS BAR */}
+              <div className="h-1.5 w-24 md:w-32 bg-gray-900 rounded-full overflow-hidden border border-gray-800 relative group" title={`${((stats.weeksLived / stats.totalWeeks) * 100).toFixed(1)}% Complete`}>
+                <div 
+                  className="h-full bg-gradient-to-r from-cyan-900 to-cyan-500" 
+                  style={{ width: `${(stats.weeksLived / stats.totalWeeks) * 100}%` }}
+                ></div>
+              </div>
+              <span className="text-[10px] text-gray-600 font-mono">
+                {((stats.weeksLived / stats.totalWeeks) * 100).toFixed(1)}%
+              </span>
+            </div>
             <p className="text-gray-500 text-xs md:text-sm mt-1"><span className="text-white font-bold">{Object.keys(intentions).length}</span> Memories | <span className="text-white font-bold">{stats.weeksLived}</span> Weeks</p>
           </div>
           <div className="flex gap-3 items-center flex-wrap justify-end">
             <input type="text" placeholder="Search..." value={rawSearch} onChange={(e) => setRawSearch(e.target.value)} className="bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2 w-28 md:w-32 focus:w-48 transition-all outline-none" />
             <div className="bg-gray-800 p-1 rounded-lg hidden md:flex">
-              {['grid', 'timeline', 'stats'].map(v => <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${view === v ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>{v}</button>)}
+              {['grid', 'timeline', 'milestones', 'stats'].map(v => <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${view === v ? 'bg-gray-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>{v}</button>)}
             </div>
-            <button onClick={() => { setShowSettings(true); setSettingsTab('categories'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+            <button onClick={() => { setShowSettings(true); setSettingsTab('chapters'); }} className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors flex items-center gap-2" title="Settings"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
           </div>
         </div>
         {view === 'grid' && (
           <div className="w-full flex flex-col gap-2 md:gap-3 mt-1 landscape-hide">
             <div className="w-full flex md:flex-wrap gap-3 overflow-x-auto no-scrollbar items-center py-1 px-1 md:justify-center">
-              {ERAS.map(era => {
+              {eras.map(era => {
                 const isCurrentEra = era.name === getEraForWeek(stats.weeksLived).name;
                 return (
                   <div key={era.name} className={`flex items-center gap-2 flex-shrink-0 transition-all duration-300 ${isCurrentEra ? 'opacity-100 scale-105' : 'opacity-50'}`}>
@@ -622,48 +796,119 @@ function App() {
         )}
       </header>
 
+      {/* --- MILESTONES VIEW (The Highlight Reel) --- */}
+      {view === 'milestones' && (
+        <div className="max-w-4xl w-full flex flex-col gap-8 px-4 md:px-0 mt-12 md:mt-20 pb-20">
+          <div className="text-center space-y-2 mb-4 animate-text-reveal">
+            <h2 className="text-3xl font-black text-amber-400 tracking-tight">HALL OF FAME</h2>
+            <p className="text-gray-500 text-xs uppercase tracking-widest">Your Life's Greatest Hits</p>
+          </div>
+
+          {Object.values(intentions).filter(e => e.isMilestone).length === 0 ? (
+            <div className="text-center text-gray-600 italic py-20 border border-dashed border-gray-800 rounded-xl">
+              No milestones yet. <br/> Click the <span className="text-amber-400">⭐</span> on a memory to add it here.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {getSortedEntries()
+                .filter(entry => entry.isMilestone)
+                .map((entry, i) => {
+                  const era = getEraForWeek(entry.weekIndex);
+                  const delay = `${i * 0.1}s`;
+                  
+                  return (
+                    <div 
+                      key={entry.weekIndex} 
+                      onClick={() => { setView('grid'); setTimeout(() => { document.getElementById(`week-${entry.weekIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); handleBoxClick(entry.weekIndex); }, 100); }}
+                      className="group relative bg-[#1E1E1E] border border-gray-800 rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-all duration-300 shadow-2xl animate-text-reveal"
+                      style={{ animationDelay: delay }}
+                    >
+                      {/* Colorful Era Header */}
+                      <div className={`h-2 w-full ${era.color} opacity-50 group-hover:opacity-100 transition-opacity`}></div>
+                      
+                      <div className="p-6 flex flex-col h-full relative">
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border border-gray-800 px-2 py-1 rounded bg-black/30">
+                            {getDateFromWeekIndex(entry.weekIndex)}
+                          </span>
+                          <span className="text-2xl filter drop-shadow-lg">⭐</span>
+                        </div>
+
+                        <h3 className="text-xl md:text-2xl font-black text-white mb-3 leading-tight group-hover:text-amber-400 transition-colors">
+                          {entry.title || "Untitled Milestone"}
+                        </h3>
+                        
+                        <p className="text-gray-400 text-sm leading-relaxed line-clamp-4">
+                          {entry.text}
+                        </p>
+
+                        <div className="mt-6 pt-4 border-t border-gray-800 flex justify-between items-center">
+                          <span className="text-[10px] text-gray-600 font-bold uppercase">{era.name}</span>
+                          <span className="text-xs text-amber-500 font-bold group-hover:translate-x-1 transition-transform">VIEW MEMORY &rarr;</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === 'stats' && (
+        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-0 pb-20 animate-in fade-in duration-500 mt-12 md:mt-20">
+           {/* STATS CARDS */}
+           <div className="col-span-1 md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{dashboardStats.totalMemories}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Memories</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-amber-400 mb-2">{dashboardStats.totalMilestones}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-amber-500/70 text-center">Milestones</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-cyan-400 mb-2">{Math.round((dashboardStats.totalMemories / stats.weeksLived) * 100) || 0}%</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-cyan-500/70 text-center">Docs Rate</span></div>
+             <div className="bg-[#1E1E1E] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center"><span className="text-2xl md:text-4xl font-bold text-white mb-2">{4680 - stats.weeksLived}</span><span className="text-[10px] md:text-xs uppercase tracking-widest text-gray-500 text-center">Weeks Left</span></div>
+          </div>
+          
+          {/* CHART: This was missing in your screenshot! */}
+          <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800">
+             <LifeTrendChart data={dashboardStats.trendData} />
+          </div>
+
+          {/* LIFE BALANCE */}
+          <div className="col-span-1 md:col-span-2 bg-[#1E1E1E] p-8 rounded-xl border border-gray-800"><h3 className="text-xl font-bold mb-6">Life Balance</h3><div className="space-y-4">{Object.entries(categories).map(([key, val]) => { const styles = getCategoryStyle(key); const count = dashboardStats.catCounts[key] || 0; const percent = dashboardStats.totalMemories > 0 ? (count / dashboardStats.totalMemories) * 100 : 0; if (count === 0 && key !== 'default') return null; return ( <div key={key}><div className="flex justify-between text-xs uppercase font-bold mb-1"><span className={styles.text}>{val.label}</span><span className="text-gray-500">{count} ({Math.round(percent)}%)</span></div><div className="w-full bg-gray-900 rounded-full h-3 overflow-hidden"><div className={`h-full ${styles.bg} transition-all duration-1000`} style={{ width: `${percent}%` }}></div></div></div> ); })}</div></div>
+        </div>
+      )}
+
+      {/* --- WIDGETS (Flashback & Goal) --- */}
+      {view === 'grid' && (
+        <>
+          {getFlashback}
+          {nextGoal && (
+            <div 
+              className="w-full max-w-[1200px] mb-4 flex justify-end px-4 md:px-0"
+              onClick={() => {
+                 const el = document.getElementById(`week-${nextGoal.weekIndex}`);
+                 if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 handleBoxClick(nextGoal.weekIndex);
+              }}
+            >
+              <div className="bg-gray-900/80 border border-cyan-900/50 p-3 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-gray-800 transition-all group backdrop-blur-md">
+                 <div className="text-right">
+                    <p className="text-[10px] text-cyan-500 uppercase font-bold tracking-wider">Next Target</p>
+                    <p className="text-white font-bold text-sm">{nextGoal.title}</p>
+                 </div>
+                 <div className="bg-cyan-950 border border-cyan-800 rounded px-3 py-1 text-center min-w-[60px]">
+                    <span className="block text-xl font-black text-cyan-400 leading-none">{nextGoal.weeksLeft}</span>
+                    <span className="text-[9px] text-cyan-600 uppercase font-bold">Weeks</span>
+                 </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* GRID VIEW */}
       {view === 'grid' && (
         <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y">
            <div className="flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] md:min-w-[1200px] md:max-w-[1200px] pb-20">
-            {Array.from({ length: stats.totalWeeks }).map((_, i) => {
-              const isPastRaw = i < stats.weeksLived;
-              const isPast = isPastRaw && gridReady;
-              const isCurrent = i === stats.weeksLived;
-              const isFuture = i > stats.weeksLived;
-              const entry = intentions[i];
-              const era = getEraForWeek(i);
-              
-              const isMatch = doesMatchSearch(entry);
-              const opacityClass = debouncedSearch && !isMatch && !isCurrent ? 'opacity-10 grayscale' : 'opacity-100';
-              const isPreview = i === previewWeek;
-              const isAnimatingPast = isPastRaw && !gridReady && showPastAnimation;
-
-              let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
-              const crossOutAnimDelay = isAnimatingPast ? `${(i / stats.weeksLived) * 2.5}s` : undefined;
-              
-              if (isPreview) {
-                 boxClass += " bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,1)] z-50 scale-150 border border-white";
-              } else if (isPast) {
-                if (entry) {
-                  const styles = getCategoryStyle(entry.category || 'default');
-                  boxClass = `${styles.bg} shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 hover:scale-150 hover:z-50 hover:bg-white cursor-pointer rounded-[2px]`;
-                  if (entry.isMilestone) boxClass = "bg-amber-400 shadow-[0_0_20px_rgba(251,191,36,1)] z-20 animate-pulse cursor-pointer hover:scale-150";
-                } else { boxClass += ` ${era.color} crossed-out cursor-pointer hover:brightness-125`; }
-              } else if (isAnimatingPast) {
-                boxClass += ` ${era.color} crossed-out animate-cross-out cursor-pointer`;
-              } else if (isCurrent) { boxClass += " bg-white shadow-[0_0_25px_rgba(255,255,255,1)] z-30 scale-125 animate-pulse cursor-pointer"; 
-              } else if (isFuture) {
-                boxClass += " bg-transparent border border-white/5 hover:border-white/20 cursor-pointer"; 
-                if (entry) {
-                  const styles = getCategoryStyle(entry.category || 'default');
-                  boxClass = `bg-transparent border-2 ${styles.border} shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10 hover:scale-125`; 
-                  if (entry.isMilestone) boxClass = "bg-transparent border-2 border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)] hover:scale-125";
-                }
-              }
-              // Removed onMouseEnter for desktop tooltip as we are unifying UX
-              return ( <WeekBox key={i} weekIndex={i} boxClass={boxClass} opacityClass={opacityClass} animDelay={crossOutAnimDelay} onClick={handleBoxClick} onMouseEnter={() => {}} onMouseLeave={() => {}} isCurrent={isCurrent} /> );
-            })}
+            {/* RENDER THE MEMOIZED GRID ITEMS HERE */}
+            {gridItems}
           </div>
         </div>
       )}
@@ -686,7 +931,9 @@ function App() {
           </div>
           <div className="flex gap-2 h-12">
             <button onClick={() => adjustPreview(-1)} className="w-14 bg-gray-800 rounded-lg flex items-center justify-center text-xl hover:bg-gray-700 active:scale-95 transition-all border border-gray-700">←</button>
-            <button onClick={() => openModal(previewWeek)} className="flex-1 bg-cyan-500 text-black font-black text-sm uppercase tracking-wider rounded-lg hover:bg-cyan-400 active:scale-[0.98] transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]">{intentions[previewWeek] ? "Edit Entry" : "Log Memory"}</button>
+            <button onClick={() => openModal(previewWeek)} className="flex-1 bg-cyan-500 text-black font-black text-sm uppercase tracking-wider rounded-lg hover:bg-cyan-400 active:scale-[0.98] transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                {intentions[previewWeek] ? "Edit Entry" : (previewWeek > stats.weeksLived ? "Set Goal" : "Log Memory")}
+            </button>
             <button onClick={() => adjustPreview(1)} className="w-14 bg-gray-800 rounded-lg flex items-center justify-center text-xl hover:bg-gray-700 active:scale-95 transition-all border border-gray-700">→</button>
           </div>
           <button onClick={() => setPreviewWeek(null)} className="absolute -top-10 right-4 bg-gray-800 text-white rounded-full p-2 text-xs shadow-lg border border-gray-700">✕ Cancel</button>
@@ -703,7 +950,7 @@ function App() {
               const styles = getCategoryStyle(entry.category || 'default');
               const isFuture = entry.weekIndex > stats.weeksLived;
               return (
-                <div key={entry.weekIndex} className={`bg-[#1E1E1E] border-l-4 p-6 rounded-r-lg shadow-lg cursor-pointer hover:bg-[#252525] transition-colors group relative ${isFuture ? 'opacity-70 border-dashed' : ''}`} style={{ borderLeftColor: entry.isMilestone ? '#fbbf24' : (isFuture ? 'gray' : undefined) }} onClick={() => handleBoxClick(entry.weekIndex)}>
+                <div key={entry.weekIndex} className={`bg-[#1E1E1E] border-l-4 p-6 rounded-r-lg shadow-lg cursor-pointer hover:bg-[#252525] transition-colors group relative ${isFuture ? 'opacity-70 border-dashed' : ''}`} style={{ borderLeftColor: entry.isMilestone ? '#fbbf24' : (isFuture ? 'gray' : undefined) }} onClick={() => { setView('grid'); setTimeout(() => { document.getElementById(`week-${entry.weekIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); handleBoxClick(entry.weekIndex); }, 100); }}>
                   {!entry.isMilestone && <div className={`absolute left-0 top-0 bottom-0 w-1 ${styles.bg} -ml-[4px]`}></div>}
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2 items-center">
@@ -715,13 +962,27 @@ function App() {
                   </div>
                   {entry.title && <h3 className="text-white font-bold mb-2 text-lg">{entry.title}</h3>}
                   <p className="text-gray-300 leading-relaxed text-sm whitespace-pre-wrap">{entry.text}</p>
-                  {entry.image && <img src={entry.image} alt="Memory" className="mt-4 rounded border border-gray-700 max-h-60 object-cover" />}
                   {entry.logs && entry.logs.length > 0 && <div className="mt-4 pt-4 border-t border-gray-800 space-y-1">{entry.logs.map(l => <div key={l.id} className="text-xs text-gray-400"><span className="text-cyan-600 font-bold uppercase mr-2">{l.tag}</span>{l.text}</div>)}</div>}
                 </div>
               );
             })
           )}
         </div>
+      )}
+
+      {/* Add this near your "Jump to Now" button at the bottom */}
+      {view === 'grid' && !previewWeek && (
+        <>
+          {/* Existing Jump to Now Button */}
+          <button onClick={jumpToNow} className="fixed bottom-24 right-6 md:bottom-8 md:right-8 bg-cyan-500 hover:bg-white text-black p-4 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-110 z-40 group" title="Jump to Today">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+
+          {/* NEW: Time Travel Button */}
+          <button onClick={handleShuffle} className="fixed bottom-24 left-6 md:bottom-8 md:left-8 bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all hover:scale-110 z-40 group" title="Random Memory">
+              <span className="text-xl group-hover:rotate-180 transition-transform duration-500 block">🎲</span>
+          </button>
+        </>
       )}
 
       {/* STATS VIEW (EXPANDED) */}
@@ -762,10 +1023,11 @@ function App() {
       )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-gray-800 p-2 pb-6 flex md:hidden justify-around z-50">
-         {['grid', 'timeline', 'stats'].map(v => (
+         {['grid', 'timeline', 'milestones','stats'].map(v => (
            <button key={v} onClick={() => { setView(v); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${view === v ? 'text-white' : 'text-gray-600'}`}>
              {v === 'grid' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>}
              {v === 'timeline' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>}
+             {v === 'milestones' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>}
              {v === 'stats' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>}
              <span className="text-[10px] font-bold uppercase">{v}</span>
            </button>
@@ -782,8 +1044,40 @@ function App() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
            <div className="bg-[#1E1E1E] rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
              <div className="p-6 border-b border-gray-800 flex justify-between items-center"><h2 className="text-xl font-bold text-white">Settings</h2><button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors">✕</button></div>
-             <div className="flex border-b border-gray-800">{['categories', 'profile', 'data'].map(tab => <button key={tab} onClick={() => setSettingsTab(tab)} className={`flex-1 py-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${settingsTab === tab ? 'text-cyan-500 border-cyan-500 bg-gray-900/50' : 'text-gray-500 border-transparent hover:text-white hover:bg-gray-900/30'}`}>{tab}</button>)}</div>
+             <div className="flex border-b border-gray-800">{['chapters', 'categories', 'profile', 'data'].map(tab => <button key={tab} onClick={() => setSettingsTab(tab)} className={`flex-1 py-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${settingsTab === tab ? 'text-cyan-500 border-cyan-500 bg-gray-900/50' : 'text-gray-500 border-transparent hover:text-white hover:bg-gray-900/30'}`}>{tab}</button>)}</div>
              <div className="p-6 overflow-y-auto">
+              {/* NEW: CHAPTERS TAB */}
+               {settingsTab === 'chapters' && (
+                 <div className="space-y-6">
+                   <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800 text-xs text-gray-400 leading-relaxed mb-4">
+                     Chapters help you visualize eras of your life (e.g., "College", "Married", "Kyoto Trip"). The grid will change colors based on these milestones.
+                   </div>
+                   <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                     {eras.map(era => (
+                       <div key={era.id} className="flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-800">
+                         <div className="flex items-center gap-3">
+                           <div className={`w-4 h-4 rounded-sm ${era.color}`}></div>
+                           <div><div className="text-sm font-bold text-gray-300">{era.name}</div><div className="text-[10px] text-gray-500 uppercase">Starts at Age {Math.floor(era.startWeek/52)}</div></div>
+                         </div>
+                         <button onClick={() => deleteChapter(era.id)} className="text-red-500 hover:text-red-400 text-xs uppercase font-bold px-2 py-1">Delete</button>
+                       </div>
+                     ))}
+                   </div>
+                   <div className="border-t border-gray-800 pt-4">
+                       <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Add New Chapter</h3>
+                       <div className="grid grid-cols-2 gap-2 mb-2">
+                         <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" placeholder="Chapter Name" value={newChapterName} onChange={e => setNewChapterName(e.target.value)} />
+                         <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" type="number" placeholder="Start Age (e.g. 25)" value={newChapterAge} onChange={e => setNewChapterAge(e.target.value)} />
+                       </div>
+                       <div className="mb-3 overflow-x-auto flex gap-2 pb-2">
+                          {['bg-blue-600/30','bg-red-600/30','bg-green-600/30','bg-purple-600/30','bg-pink-600/30','bg-yellow-600/30','bg-teal-600/30'].map(c => (
+                            <button key={c} onClick={() => setNewChapterColor(c)} className={`w-6 h-6 rounded flex-shrink-0 ${c} ${newChapterColor === c ? 'border-2 border-white' : 'border border-transparent'}`}></button>
+                          ))}
+                       </div>
+                       <button onClick={addChapter} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD CHAPTER</button>
+                   </div>
+                 </div>
+               )}
                {settingsTab === 'categories' && (
                  <div className="space-y-6">
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
@@ -844,9 +1138,9 @@ function App() {
           onClose={() => setShowModal(false)}
           onSave={saveIntention}
           isCurrentWeek={selectedWeek === stats.weeksLived}
+          isFuture={selectedWeek > stats.weeksLived}
           getDateStr={getDateFromWeekIndex(selectedWeek)}
           getEraName={getEraForWeek(selectedWeek).name}
-          // NEW PROPS FOR TUTORIAL
           tutorialMode={tutorialStep === 5}
           finishTutorial={nextTutorial}
         />
@@ -855,17 +1149,11 @@ function App() {
       {/* --- 5-STEP SEQUENTIAL TUTORIAL --- */}
       {tutorialStep > 0 && tutorialStep < 5 && (
         <div 
-          // BACKGROUND LOGIC:
-          // Step 1: Dark (Focus)
-          // Step 2, 3, 4: Transparent (Show Grid) + Pointer Events None (Click Through)
           className={`fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-700 ${
             tutorialStep === 1 ? 'bg-black/90 backdrop-blur-sm' : 'bg-transparent pointer-events-none'
           }`} 
-          // Only click-to-advance on Step 1.
           onClick={tutorialStep === 1 ? nextTutorial : undefined}
         >
-          
-          {/* SKIP BUTTON */}
           <button 
             onClick={(e) => { e.stopPropagation(); skipTutorial(); }} 
             className="absolute top-6 right-6 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full border border-gray-800 hover:bg-gray-800 transition-all pointer-events-auto bg-black/50 backdrop-blur-md"
@@ -906,7 +1194,7 @@ function App() {
             </div>
           )}
 
-          {/* STEP 3: "HOW TO USE" (New Step before Log Memory) */}
+          {/* STEP 3: "HOW TO USE" */}
           {tutorialStep === 3 && (
             <div className="flex justify-center pointer-events-none w-full">
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
@@ -921,11 +1209,10 @@ function App() {
             </div>
           )}
 
-          {/* STEP 4: "TRY IT OUT" (Interactive) */}
+          {/* STEP 4: "TRY IT OUT" */}
           {tutorialStep === 4 && (
             <div className="flex justify-center pointer-events-none w-full">
                <div className="bg-[#1E1E1E] border border-cyan-500/50 p-8 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.4)] max-w-sm mx-4 relative backdrop-blur-xl pointer-events-auto animate-bounce-slight text-center">
-                 {/* Arrow pointing down to the REAL control bar */}
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#1E1E1E] border-r border-b border-cyan-500/50 rotate-45"></div>
                  
                  <h3 className="text-xl font-black text-white mb-2 tracking-tight">TRY IT OUT</h3>
