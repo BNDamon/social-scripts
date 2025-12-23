@@ -15,9 +15,10 @@ const GLOBAL_STYLES = `
   /* 2. The "Crossed Out" Texture for past weeks */
   /* OPTIMIZATION: Removed opacity here to make grid brighter */
   .crossed-out {
-    background-image: 
-      linear-gradient(to top left,  transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%),
-      linear-gradient(to top right, transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%);
+    background-image:
+      linear-gradient(to top left,  transparent 45%, rgba(0,0,0,0.3) 48%, rgba(0,0,0,0.3) 52%, transparent 55%),
+      linear-gradient(to top right, transparent 45%, rgba(0,0,0,0.3) 48%, rgba(0,0,0,0.3) 52%, transparent 55%);
+    opacity: 1 !important;
     border-color: transparent !important;
   }
 
@@ -181,16 +182,20 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   const [newLogTag, setNewLogTag] = useState('');
   const fileUploadRef = useRef(null);
   const [currentPrompt, setCurrentPrompt] = useState('');
-  const [placeholder, setPlaceholder] = useState(isFuture ? "Steps to achieve this..." : "Weekly summary...");
+  const [placeholder, setPlaceholder] = useState("");
+
+    useEffect(() => {
+        if (isFuture) {
+            setPlaceholder("Steps to achieve this...");
+        } else {
+            const randomPrompt = JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
+            setPlaceholder(randomPrompt);
+        }
+    }, [isFuture]);
 
   const rollDice = () => {
     const random = WRITING_PROMPTS[Math.floor(Math.random() * WRITING_PROMPTS.length)];
     setCurrentPrompt(random);
-  };
-
-  const triggerOracle = () => {
-    const randomPrompt = JOURNAL_PROMPTS[Math.floor(Math.random() * JOURNAL_PROMPTS.length)];
-    setPlaceholder(randomPrompt);
   };
 
   const handleAddLog = () => {
@@ -235,9 +240,6 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
                   <div><strong className="text-white block mb-1">Rating</strong>Score your week 1-10. Be honest. This builds your life graph.</div>
                 </div>
              </div>
-             <button onClick={finishTutorial} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-[0.98] uppercase tracking-widest text-[10px] mt-8">
-               Start Using Mementus
-             </button>
           </div>
         )}
 
@@ -276,20 +278,12 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
                   </div>
               </div>
               
-              <textarea 
-                className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[100px] resize-none text-base pr-10" // Added pr-10 for button space
-                value={text} 
-                onChange={(e) => setText(e.target.value)} 
-                placeholder={placeholder} // Uses dynamic placeholder
-              />
-              {/* THE ORACLE BUTTON */}
-              <button 
-                onClick={triggerOracle} 
-                className="absolute top-3 right-3 text-gray-500 hover:text-cyan-400 transition-colors text-lg" 
-                title="Get a writing prompt"
-              >
-                🎲
-              </button>
+                          <textarea
+                              className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-white outline-none min-h-[100px] resize-none text-base"
+                              value={text}
+                              onChange={(e) => setText(e.target.value)}
+                              placeholder={placeholder}
+                          />
             </div>
             
             {/* Hide daily logs for future goals to keep UI clean */}
@@ -913,16 +907,14 @@ function App() {
       )}
 
       {/* GRID VIEW */}
-      {view === 'grid' && (
-        <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y">
-           {/* OPTIMIZATION: touch-pan-y prevents horizontal scroll issues on mobile */}
-           {/* OPTIMIZATION: w-full max-w-[1200px] improves responsiveness */}
-           <div className="grid-container-optimized flex flex-wrap content-start gap-[2px] md:gap-[3px] min-w-[420px] max-w-[420px] w-full md:max-w-[1200px] pb-32">
-            {/* RENDER THE MEMOIZED GRID ITEMS HERE */}
-            {gridItems}
-          </div>
-        </div>
-      )}
+          {view === 'grid' && (
+              <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y no-scrollbar">
+                  <div className="grid-container-optimized flex flex-wrap content-start justify-center gap-[2px] md:gap-[3px] w-full max-w-[1200px] mx-auto pb-32">
+                      {/* RENDER THE MEMOIZED GRID ITEMS HERE */}
+                      {gridItems}
+                  </div>
+              </div>
+          )}
 
       {/* --- CONTROL BAR (Z-Index 120 to pop over Tutorial) --- */}
       {previewWeek !== null && (
