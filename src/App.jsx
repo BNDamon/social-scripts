@@ -1071,42 +1071,6 @@ function App() {
            {/* MOBILE: Era Focus Mode */}
            <div className="flex md:hidden flex-col w-full max-w-[400px]">
 
-            {!intentions[stats.weeksLived] && (
-  <div className="w-full bg-[#121212] border border-gray-800 p-4 rounded-xl mb-6 shadow-lg animate-in slide-in-from-bottom-4">
-    <p className="text-[10px] uppercase font-bold text-gray-500 mb-3 text-center tracking-widest">
-      How is this week going?
-    </p>
-    <div className="flex justify-between gap-2">
-      {[
-        { val: 2, label: "Rough", emoji: "😤" },
-        { val: 5, label: "Okay", emoji: "😐" },
-        { val: 8, label: "Good", emoji: "🙂" },
-        { val: 10, label: "Great", emoji: "🤩" }
-      ].map((opt) => (
-        <button
-          key={opt.val}
-          onClick={() => {
-            // Immediate Save
-            const quickEntry = {
-              title: "Quick Check-in",
-              text: "",
-              rating: opt.val,
-              isMilestone: false,
-              category: "default",
-              logs: []
-            };
-            saveIntention(quickEntry); // Reuses your existing save logic
-            confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
-          }}
-          className="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 py-3 rounded-lg border border-gray-700 transition-all flex flex-col items-center gap-1"
-        >
-          <span className="text-2xl grayscale hover:grayscale-0 transition-all">{opt.emoji}</span>
-        </button>
-      ))}
-    </div>
-  </div>
-)}
-
             {/* --- TIME CAPSULE CARD (Mobile Reward) --- */}
 {timeCapsule && (
   <div 
