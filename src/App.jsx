@@ -13,7 +13,6 @@ const GLOBAL_STYLES = `
   }
 
   /* 2. The "Crossed Out" Texture for past weeks */
-  /* OPTIMIZATION: Removed opacity here to make grid brighter */
   .crossed-out {
     background-image:
       linear-gradient(to top left,  transparent 45%, rgba(0,0,0,0.3) 48%, rgba(0,0,0,0.3) 52%, transparent 55%),
@@ -29,7 +28,7 @@ const GLOBAL_STYLES = `
       background-image: 
         linear-gradient(to top left,  transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%),
         linear-gradient(to top right, transparent 46%, rgba(0,0,0,0.4) 48%, rgba(0,0,0,0.4) 52%, transparent 54%);
-      opacity: 0.8; /* Brighter than before */
+      opacity: 0.8;
       border-color: transparent;
     }
   }
@@ -44,7 +43,7 @@ const GLOBAL_STYLES = `
 
   /* Prevent iOS Zoom on Inputs */
   input, textarea, select { font-size: 16px !important; }
-   
+    
   /* Custom Range Slider for Touch */
   input[type=range] { -webkit-appearance: none; background: transparent; }
   input[type=range]:focus { outline: none; }
@@ -57,13 +56,12 @@ const GLOBAL_STYLES = `
     .landscape-compact { padding-top: 4px !important; padding-bottom: 4px !important; gap: 8px !important; }
     .landscape-row { flex-direction: row !important; align-items: center; justify-content: space-between; }
   }
-  
+   
   /* OPTIMIZATION: Browser Native Lazy Rendering for Grid */
   .grid-container-optimized {
      content-visibility: auto;
-     contain-intrinsic-size: 1200px 3000px; /* Estimates height to prevent scrollbar jumping */
+     contain-intrinsic-size: 1200px 3000px; 
   }
-  /* Mobile specific estimate */
   @media (max-width: 768px) {
     .grid-container-optimized {
         contain-intrinsic-size: 420px 5000px;
@@ -223,7 +221,7 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-end md:items-center justify-center p-0 md:p-4 z-[200] backdrop-blur-sm overflow-hidden">
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[200] backdrop-blur-sm overflow-hidden">
       <div className="relative w-full max-w-lg">
 
         {/* --- TUTORIAL SIDECAR --- */}
@@ -1103,94 +1101,127 @@ function App() {
       {tooltip.show && <div className="fixed z-50 bg-[#222] border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none backdrop-blur-md animate-in fade-in duration-75 max-w-xs" style={{ top: tooltip.y, left: tooltip.x }}>{tooltip.content}</div>}
 
       {showSettings && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-           <div className="bg-[#1E1E1E] rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-             <div className="p-6 border-b border-gray-800 flex justify-between items-center"><h2 className="text-xl font-bold text-white">Settings</h2><button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors">✕</button></div>
-             <div className="flex border-b border-gray-800">{['chapters', 'categories', 'profile', 'data'].map(tab => <button key={tab} onClick={() => setSettingsTab(tab)} className={`flex-1 py-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${settingsTab === tab ? 'text-cyan-500 border-cyan-500 bg-gray-900/50' : 'text-gray-500 border-transparent hover:text-white hover:bg-gray-900/30'}`}>{tab}</button>)}</div>
-             <div className="p-6 overflow-y-auto">
-              {/* NEW: CHAPTERS TAB */}
-               {settingsTab === 'chapters' && (
-                 <div className="space-y-6">
-                   <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800 text-xs text-gray-400 leading-relaxed mb-4">
-                     Chapters help you visualize eras of your life (e.g., "College", "Married", "Kyoto Trip"). The grid will change colors based on these milestones.
-                   </div>
-                   <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                     {eras.map(era => (
-                       <div key={era.id} className="flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-800">
-                         <div className="flex items-center gap-3">
-                           <div className={`w-4 h-4 rounded-sm ${era.color}`}></div>
-                           <div><div className="text-sm font-bold text-gray-300">{era.name}</div><div className="text-[10px] text-gray-500 uppercase">Starts at Age {Math.floor(era.startWeek/52)}</div></div>
-                         </div>
-                         <button onClick={() => deleteChapter(era.id)} className="text-red-500 hover:text-red-400 text-xs uppercase font-bold px-2 py-1">Delete</button>
-                       </div>
-                     ))}
-                   </div>
-                   <div className="border-t border-gray-800 pt-4">
-                       <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Add New Chapter</h3>
-                       <div className="grid grid-cols-2 gap-2 mb-2">
-                         <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" placeholder="Chapter Name" value={newChapterName} onChange={e => setNewChapterName(e.target.value)} />
-                         <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" type="number" placeholder="Start Age (e.g. 25)" value={newChapterAge} onChange={e => setNewChapterAge(e.target.value)} />
-                       </div>
-                       <div className="mb-3 overflow-x-auto flex gap-2 pb-2">
-                          {['bg-blue-600/50','bg-red-600/50','bg-green-600/50','bg-purple-600/50','bg-pink-600/50','bg-yellow-600/50','bg-teal-600/50'].map(c => (
-                            <button key={c} onClick={() => setNewChapterColor(c)} className={`w-6 h-6 rounded flex-shrink-0 ${c} ${newChapterColor === c ? 'border-2 border-white' : 'border border-transparent'}`}></button>
-                          ))}
-                       </div>
-                       <button onClick={addChapter} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD CHAPTER</button>
-                   </div>
-                 </div>
-               )}
-               {settingsTab === 'categories' && (
-                 <div className="space-y-6">
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                      {Object.entries(categories).map(([key, val]) => {
-                        const styles = getCategoryStyle(key);
-                        return (
-                          <div key={key} className="flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-800">
-                            <div className="flex items-center gap-3"><div className={`w-4 h-4 rounded-full ${styles.bg}`}></div><span className="text-sm font-bold text-gray-300">{val.label}</span></div>
-                            {key !== 'default' && <button onClick={() => deleteCategory(key)} className="text-red-500 hover:text-red-400 text-xs uppercase font-bold px-2 py-1 hover:bg-red-900/20 rounded">Delete</button>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="border-t border-gray-800 pt-4">
-                        <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Add New Category</h3>
-                        <div className="flex gap-2 mb-3">
-                          <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 flex-1 outline-none focus:border-cyan-500" placeholder="Name" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
-                          <select className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}>{Object.keys(PRESET_COLORS).map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select>
-                        </div>
-                        <button onClick={addCategory} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD</button>
-                    </div>
-                 </div>
-               )}
-               {settingsTab === 'profile' && (
-                 <div className="space-y-4">
-                     <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Date of Birth</label>
-                     <input type="date" value={birthday} onChange={updateBirthday} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
-                     <div className="pt-4 border-t border-gray-800">
-                      <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Weekly Reminder</label>
-                      <button onClick={scheduleNotification} className="w-full bg-gray-800 hover:bg-gray-700 text-white p-4 rounded-lg border border-gray-700 flex items-center justify-center gap-3 transition-all active:scale-95">
-                        <span>🔔</span><span className="text-sm font-bold">Enable Friday 8PM Reminder</span>
-                      </button>
-                     </div>
-                 </div>
-               )}
-               {settingsTab === 'data' && (
-                 <div className="space-y-6">
-                   <div className="grid grid-cols-2 gap-4">
-                     <button onClick={exportData} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬇</span><span className="text-sm font-bold">Backup</span></button>
-                     <button onClick={() => fileInputRef.current.click()} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬆</span><span className="text-sm font-bold">Restore</span></button>
-                   </div>
-                   <div className="border-t border-gray-800 pt-6">
-                     <button onClick={resetApp} className="w-full border border-red-900/50 text-red-500 hover:bg-red-900/20 font-bold py-3 rounded-lg transition-colors">RESET ALL DATA</button>
-                   </div>
-                 </div>
-               )}
-             </div>
-           </div>
-           <input type="file" ref={fileInputRef} onChange={importData} accept=".json" className="hidden" />
+  <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+    <div className="bg-[#1E1E1E] rounded-2xl max-w-lg w-full border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      
+      {/* Header */}
+      <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+        <h2 className="text-xl font-bold text-white">Settings</h2>
+        <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white transition-colors">✕</button>
+      </div>
+
+      {/* ▼▼▼ REPLACE THIS SECTION ▼▼▼ */}
+      {/* New Sliding Tabs UI */}
+      <div className="px-6 pt-6">
+        <div className="relative flex bg-black/40 rounded-full p-1 border border-gray-800">
+          
+          {/* 1. The Sliding Background Pill */}
+          <div 
+            className="absolute top-1 bottom-1 bg-gray-700/80 rounded-full transition-all duration-300 ease-out shadow-lg z-0"
+            style={{
+              width: `calc((100% - 8px) / 4)`, 
+              left: `calc(4px + (100% - 8px) / 4 * ${['chapters', 'categories', 'profile', 'data'].indexOf(settingsTab)})`
+            }}
+          />
+
+          {/* 2. The Text Buttons (Transparent) */}
+          {['chapters', 'categories', 'profile', 'data'].map(tab => (
+            <button 
+              key={tab} 
+              onClick={() => setSettingsTab(tab)} 
+              className={`flex-1 py-3 text-[10px] md:text-xs font-bold uppercase tracking-wider transition-colors z-10 relative ${settingsTab === tab ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
+      {/* ▲▲▲ END OF REPLACEMENT ▲▲▲ */}
+
+      <div className="p-6 overflow-y-auto">
+        {/* NEW: CHAPTERS TAB */}
+        {settingsTab === 'chapters' && (
+          <div className="space-y-6">
+            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-800 text-xs text-gray-400 leading-relaxed mb-4">
+              Chapters help you visualize eras of your life (e.g., "College", "Married", "Kyoto Trip"). The grid will change colors based on these milestones.
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+              {eras.map(era => (
+                <div key={era.id} className="flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-800">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-sm ${era.color}`}></div>
+                    <div><div className="text-sm font-bold text-gray-300">{era.name}</div><div className="text-[10px] text-gray-500 uppercase">Starts at Age {Math.floor(era.startWeek/52)}</div></div>
+                  </div>
+                  <button onClick={() => deleteChapter(era.id)} className="text-red-500 hover:text-red-400 text-xs uppercase font-bold px-2 py-1">Delete</button>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-800 pt-4">
+                <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Add New Chapter</h3>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" placeholder="Chapter Name" value={newChapterName} onChange={e => setNewChapterName(e.target.value)} />
+                  <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" type="number" placeholder="Start Age (e.g. 25)" value={newChapterAge} onChange={e => setNewChapterAge(e.target.value)} />
+                </div>
+                <div className="mb-3 overflow-x-auto flex gap-2 pb-2">
+                  {['bg-blue-600/50','bg-red-600/50','bg-green-600/50','bg-purple-600/50','bg-pink-600/50','bg-yellow-600/50','bg-teal-600/50'].map(c => (
+                    <button key={c} onClick={() => setNewChapterColor(c)} className={`w-6 h-6 rounded flex-shrink-0 ${c} ${newChapterColor === c ? 'border-2 border-white' : 'border border-transparent'}`}></button>
+                  ))}
+                </div>
+                <button onClick={addChapter} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD CHAPTER</button>
+            </div>
+          </div>
+        )}
+        {settingsTab === 'categories' && (
+          <div className="space-y-6">
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+              {Object.entries(categories).map(([key, val]) => {
+                const styles = getCategoryStyle(key);
+                return (
+                  <div key={key} className="flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-800">
+                    <div className="flex items-center gap-3"><div className={`w-4 h-4 rounded-full ${styles.bg}`}></div><span className="text-sm font-bold text-gray-300">{val.label}</span></div>
+                    {key !== 'default' && <button onClick={() => deleteCategory(key)} className="text-red-500 hover:text-red-400 text-xs uppercase font-bold px-2 py-1 hover:bg-red-900/20 rounded">Delete</button>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-gray-800 pt-4">
+                <h3 className="text-xs uppercase font-bold text-gray-500 mb-3">Add New Category</h3>
+                <div className="flex gap-2 mb-3">
+                  <input className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 flex-1 outline-none focus:border-cyan-500" placeholder="Name" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
+                  <select className="bg-black/50 border border-gray-700 text-white text-sm rounded px-3 py-2 outline-none" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}>{Object.keys(PRESET_COLORS).map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}</select>
+                </div>
+                <button onClick={addCategory} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded transition-colors">ADD</button>
+            </div>
+          </div>
+        )}
+        {settingsTab === 'profile' && (
+          <div className="space-y-4">
+              <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Date of Birth</label>
+              <input type="date" value={birthday} onChange={updateBirthday} className="w-full bg-black/50 text-white p-4 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none text-xl" />
+              <div className="pt-4 border-t border-gray-800">
+              <label className="block text-xs uppercase font-bold text-gray-500 mb-2">Weekly Reminder</label>
+              <button onClick={scheduleNotification} className="w-full bg-gray-800 hover:bg-gray-700 text-white p-4 rounded-lg border border-gray-700 flex items-center justify-center gap-3 transition-all active:scale-95">
+                <span>🔔</span><span className="text-sm font-bold">Enable Friday 8PM Reminder</span>
+              </button>
+              </div>
+          </div>
+        )}
+        {settingsTab === 'data' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={exportData} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬇</span><span className="text-sm font-bold">Backup</span></button>
+              <button onClick={() => fileInputRef.current.click()} className="flex flex-col items-center justify-center p-6 bg-gray-800 hover:bg-gray-700 rounded-xl border border-gray-700 transition-colors gap-2 group"><span className="text-2xl group-hover:scale-110 transition-transform">⬆</span><span className="text-sm font-bold">Restore</span></button>
+            </div>
+            <div className="border-t border-gray-800 pt-6">
+              <button onClick={resetApp} className="w-full border border-red-900/50 text-red-500 hover:bg-red-900/20 font-bold py-3 rounded-lg transition-colors">RESET ALL DATA</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+    <input type="file" ref={fileInputRef} onChange={importData} accept=".json" className="hidden" />
+  </div>
+)}
 
       {showModal && selectedWeek !== null && (
         <MemoryModal 
