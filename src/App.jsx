@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import confetti from 'canvas-confetti';
+import { get, set, clear } from 'idb-keyval';
 
 const GLOBAL_STYLES = `
   /* 1. The initial "Burn In" load animation */
@@ -261,8 +262,16 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
                     <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
                       <span className="text-xs font-bold text-gray-500">RATING</span>
                       <div className="flex items-center gap-2">
-                        <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-16 md:w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
-                        <span className="text-yellow-500 text-xs font-bold">{rating}</span>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={rating} 
+                          onChange={(e) => setRating(parseInt(e.target.value))} 
+                          // ADDED: touch-none to class, and style prop
+                          className="w-16 md:w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500 touch-none" 
+                          style={{ touchAction: 'none' }}
+                        />
                       </div>
                     </div>
                   )}
@@ -318,10 +327,11 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
 
 // --- MAIN APP ---
 function App() {
-  const [birthday, setBirthday] = useState(() => localStorage.getItem('dob') || '');
-  const [intentions, setIntentions] = useState(() => JSON.parse(localStorage.getItem('intentions') || '{}'));
-  const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('categories') || JSON.stringify(INITIAL_CATEGORIES)));
-  const [eras, setEras] = useState(() => JSON.parse(localStorage.getItem('eras') || JSON.stringify(DEFAULT_ERAS)));
+  const [birthday, setBirthday] = useState('');
+  const [intentions, setIntentions] = useState({}); // Start empty
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [eras, setEras] = useState(DEFAULT_ERAS);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   const [view, setView] = useState('grid');
   // Chapter Settings Inputs
@@ -382,6 +392,77 @@ function App() {
     if(idx !== -1) setMobileEraIndex(idx);
   }, [stats.weeksLived, eras]);
 
+  useEffect(() => {
+    async function loadData() {
+      // Load all keys from IndexedDB
+      const [dbDob, dbIntentions, dbCats, dbEras, dbSeen] = await Promise.all([
+        get('dob'),
+        get('intentions'),
+        get('categories'),
+        get('eras'),
+        get('tutorial_seen')
+      ]);
+
+      // --- DATE OF BIRTH ---
+      if (dbDob) {
+        setBirthday(dbDob);
+      } else {
+        // Fallback: Check LocalStorage
+        const lsDob = localStorage.getItem('dob');
+        if (lsDob) { setBirthday(lsDob); set('dob', lsDob); }
+      }
+
+      // --- INTENTIONS ---
+      if (dbIntentions) {
+        setIntentions(dbIntentions);
+      } else {
+        const lsIntentions = localStorage.getItem('intentions');
+        if (lsIntentions) {
+           const parsed = JSON.parse(lsIntentions);
+           setIntentions(parsed);
+           set('intentions', parsed);
+        }
+      }
+
+      // --- CATEGORIES ---
+      if (dbCats) setCategories(dbCats);
+      else {
+        const lsCats = localStorage.getItem('categories');
+        if (lsCats) { const parsed = JSON.parse(lsCats); setCategories(parsed); set('categories', parsed); }
+      }
+
+      // --- ERAS ---
+      if (dbEras) setEras(dbEras);
+      else {
+        const lsEras = localStorage.getItem('eras');
+        if (lsEras) { const parsed = JSON.parse(lsEras); setEras(parsed); set('eras', parsed); }
+      }
+
+      // --- TUTORIAL SEEN ---
+      let hasSeen = dbSeen;
+      if (!hasSeen) {
+         if (localStorage.getItem('tutorial_seen') === 'true') {
+            hasSeen = true;
+            set('tutorial_seen', true);
+         }
+      }
+
+      // Determine Tutorial State
+      if (hasSeen) {
+        setGridReady(true);
+        setTutorialStep(0);
+      } else if (birthday || localStorage.getItem('dob')) {
+        // If they have a birthday but haven't finished tutorial
+        setTutorialStep(1);
+      } else {
+        setTutorialStep(0);
+      }
+
+      setIsDataLoaded(true);
+    }
+    loadData();
+  }, []);
+
   const currentMobileEra = eras[mobileEraIndex];
   const nextMobileEra = eras[mobileEraIndex + 1];
   const mobileStartWeek = currentMobileEra?.startWeek || 0;
@@ -429,9 +510,34 @@ function App() {
 
   // Optimized Navigation: Uses IDs for reliability
   const jumpToNow = useCallback(() => {
-    const el = document.getElementById(`week-${stats.weeksLived}`);
-    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-  }, [stats.weeksLived]);
+    // 1. Force Grid View
+    setView('grid');
+
+    // 2. Calculate which Era the current week belongs to (Crucial for Mobile)
+    const currentWeekIndex = stats.weeksLived;
+    const correctEraIndex = eras.findIndex((e, i) => {
+       const next = eras[i+1];
+       return currentWeekIndex >= e.startWeek && (!next || currentWeekIndex < next.startWeek);
+    });
+    
+    // 3. Switch to that Era immediately
+    if (correctEraIndex !== -1) {
+      setMobileEraIndex(correctEraIndex);
+    }
+
+    // 4. Wait for the DOM to update, then scroll
+    setTimeout(() => {
+      const el = document.getElementById(`week-${currentWeekIndex}`);
+      if(el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        
+        // Optional: Add a flash effect so you spot it easily
+        el.style.transition = 'filter 0.5s';
+        el.style.filter = 'brightness(2) drop-shadow(0 0 10px white)';
+        setTimeout(() => { el.style.filter = ''; }, 1000);
+      }
+    }, 100); // 100ms delay gives React time to render the grid
+  }, [stats.weeksLived, eras]);
 
   const addChapter = () => {
     if (!newChapterName || !newChapterAge) return;
@@ -439,7 +545,7 @@ function App() {
     const newEra = { id: Date.now().toString(), name: newChapterName, startWeek, color: newChapterColor };
     const updatedEras = [...eras, newEra].sort((a,b) => a.startWeek - b.startWeek);
     setEras(updatedEras);
-    localStorage.setItem('eras', JSON.stringify(updatedEras));
+    set('eras', updatedEras);
     setNewChapterName(''); setNewChapterAge('');
   };
 
@@ -447,38 +553,39 @@ function App() {
     if (eras.length <= 1) { alert("You must have at least one chapter."); return; }
     const updatedEras = eras.filter(e => e.id !== id);
     setEras(updatedEras);
-    localStorage.setItem('eras', JSON.stringify(updatedEras));
+    set('eras', updatedEras);
   };
 
-  // Flashback Logic (1 Year Ago)
-  const getFlashback = useMemo(() => {
-    const oneYearAgoIndex = stats.weeksLived - 52;
-    const entry = intentions[oneYearAgoIndex];
-    if (entry && (entry.title || entry.text)) {
-      return (
-        <div className="w-full max-w-[1200px] mb-4 landscape-hide animate-in slide-in-from-top duration-700">
-           <div 
-             className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/30 p-4 rounded-xl flex items-center justify-between cursor-pointer hover:bg-indigo-900/60 transition-all group"
-             onClick={() => {
-                const el = document.getElementById(`week-${oneYearAgoIndex}`);
-                if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                openModal(oneYearAgoIndex);
-             }}
-           >
-              <div className="flex gap-4 items-center">
-                 <div className="h-10 w-10 bg-indigo-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(99,102,241,0.5)] group-hover:scale-110 transition-transform">↺</div>
-                 <div>
-                    <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Time Capsule • 1 Year Ago</p>
-                    <h4 className="text-white font-bold text-sm">{entry.title || "Untitled Memory"}</h4>
-                 </div>
-              </div>
-              <span className="text-indigo-400 text-xs font-bold group-hover:translate-x-1 transition-transform">OPEN &rarr;</span>
-           </div>
-        </div>
-      );
+  // UPGRADED: "Fuzzy" Time Capsule Engine
+  const timeCapsule = useMemo(() => {
+    if (!gridReady || !birthday) return null;
+    
+    const currentWeek = stats.weeksLived;
+
+    // 1. Loop back through history (1 year ago, 2 years ago...)
+    for (let years = 1; years <= 15; years++) {
+      const anniversaryWeek = currentWeek - (years * 52);
+      if (anniversaryWeek < 0) break; // Stop if before birth
+      
+      // 2. FUZZY SEARCH: Check a 5-week window around that anniversary
+      // We check: [2 weeks before] ... [Target Week] ... [2 weeks after]
+      for (let offset = -2; offset <= 2; offset++) {
+         const targetWeek = anniversaryWeek + offset;
+         const entry = intentions[targetWeek];
+
+         // 3. If we find ANY content, return it immediately
+         if (entry && (entry.title || entry.text || (entry.logs && entry.logs.length > 0))) {
+           return { 
+             weekIndex: targetWeek,
+             yearsAgo: years,
+             data: entry,
+             dateStr: getDateFromWeekIndex(targetWeek)
+           };
+         }
+      }
     }
-    return null;
-  }, [stats.weeksLived, intentions]);
+    return null; // No memories found in the fuzzy range
+  }, [stats.weeksLived, intentions, gridReady, birthday, getDateFromWeekIndex]);
 
   // Next Goal Engine
   const nextGoal = useMemo(() => {
@@ -538,7 +645,7 @@ function App() {
       // Step 5: (Handled by openModal)
     } else {
       setTutorialStep(0);
-      localStorage.setItem('tutorial_seen', 'true');
+      set('tutorial_seen', true);
       setGridReady(true);
       setPreviewWeek(null);
       setShowModal(false);
@@ -547,7 +654,7 @@ function App() {
 
   const skipTutorial = () => {
     setTutorialStep(0);
-    localStorage.setItem('tutorial_seen', 'true');
+    set('tutorial_seen', true);
     setGridReady(true);
     setShowPastAnimation(false);
     setPreviewWeek(null);
@@ -560,7 +667,7 @@ function App() {
       const todayStr = now.toDateString();
       const lastRun = localStorage.getItem('lastRunDate');
       if (lastRun !== todayStr) {
-        localStorage.setItem('lastRunDate', todayStr);
+        set('tutorial_seen', true);
         window.location.reload(); 
       }
     };
@@ -680,7 +787,7 @@ function App() {
     e.preventDefault();
     const date = e.target.dob.value;
     if (date) {
-      localStorage.setItem('dob', date);
+      set('dob', date);
       setBirthday(date);
       setView('grid'); 
       setTutorialStep(1);
@@ -690,7 +797,7 @@ function App() {
   const updateBirthday = (e) => {
     const date = e.target.value;
     setBirthday(date);
-    localStorage.setItem('dob', date);
+    set('dob', date);
   };
 
   const resetApp = () => {
@@ -706,7 +813,7 @@ function App() {
     const isEmpty = !modalData.text.trim() && !modalData.title.trim() && modalData.logs.length === 0;
     if (isEmpty) { delete newIntentions[selectedWeek]; } else { newIntentions[selectedWeek] = modalData; }
     setIntentions(newIntentions);
-    localStorage.setItem('intentions', JSON.stringify(newIntentions));
+    set('intentions', newIntentions);
     setShowModal(false);
   };
 
@@ -727,9 +834,17 @@ function App() {
         const data = JSON.parse(e.target.result);
         if (data.dob && data.intentions) {
           if (confirm("Overwrite current grid?")) {
-            localStorage.setItem('dob', data.dob); localStorage.setItem('intentions', JSON.stringify(data.intentions));
-            const cats = data.categories || INITIAL_CATEGORIES; localStorage.setItem('categories', JSON.stringify(cats));
-            setBirthday(data.dob); setIntentions(data.intentions); setCategories(cats); alert("Restored.");
+            // Save to State
+            setBirthday(data.dob); 
+            setIntentions(data.intentions); 
+            setCategories(data.categories || INITIAL_CATEGORIES);
+            
+            // Save to DB
+            set('dob', data.dob);
+            set('intentions', data.intentions);
+            set('categories', data.categories || INITIAL_CATEGORIES);
+            
+            alert("Restored.");
             setGridReady(true);
           }
         } else { alert("Invalid file."); }
@@ -740,15 +855,17 @@ function App() {
 
   const addCategory = () => {
     if (!newCatName.trim()) return;
-    const id = newCatName.toLowerCase().replace(/\s+/g, '_');
     const newCats = { ...categories, [id]: { label: newCatName, colorKey: newCatColor } };
-    setCategories(newCats); localStorage.setItem('categories', JSON.stringify(newCats)); setNewCatName('');
+    setCategories(newCats); 
+    set('categories', newCats); // <--- CHANGED
+    setNewCatName('');
   };
 
   const deleteCategory = (key) => {
     if (key === 'default') return;
     const newCats = { ...categories }; delete newCats[key];
-    setCategories(newCats); localStorage.setItem('categories', JSON.stringify(newCats));
+    setCategories(newCats); 
+    set('categories', newCats); // <--- CHANGED
   };
 
   if (!birthday) {
@@ -892,8 +1009,32 @@ function App() {
 
       {/* --- WIDGETS (Flashback & Goal) --- */}
       {view === 'grid' && (
-        <>
-          {getFlashback}
+  <>
+    {/* DESKTOP TIME CAPSULE */}
+    {timeCapsule && (
+      <div 
+        className="w-full max-w-[1200px] mb-4 hidden md:flex items-center justify-between bg-[#121212] border border-purple-900/30 p-4 rounded-xl cursor-pointer hover:bg-[#1a1a1a] transition-all group"
+        onClick={() => {
+           const el = document.getElementById(`week-${timeCapsule.weekIndex}`);
+           if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+           openModal(timeCapsule.weekIndex);
+        }}
+      >
+         <div className="flex items-center gap-4">
+            <div className="h-10 w-10 bg-purple-900/20 rounded-full flex items-center justify-center text-purple-400 text-xl group-hover:scale-110 transition-transform">↺</div>
+            <div>
+               <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-0.5">
+                 {timeCapsule.yearsAgo} Year{timeCapsule.yearsAgo > 1 ? 's' : ''} Ago • Time Capsule
+               </p>
+               <h4 className="text-white font-bold text-sm">{timeCapsule.data.title || "Untitled Memory"}</h4>
+            </div>
+         </div>
+         <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-500 font-mono">{timeCapsule.dateStr}</span>
+            <span className="text-xs font-bold text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity">OPEN &rarr;</span>
+         </div>
+      </div>
+    )}
           {nextGoal && (
             <div 
               className="w-full max-w-[1200px] mb-4 flex justify-end px-4 md:px-0"
@@ -929,6 +1070,57 @@ function App() {
 
            {/* MOBILE: Era Focus Mode */}
            <div className="flex md:hidden flex-col w-full max-w-[400px]">
+
+            {/* --- TIME CAPSULE CARD (Mobile Reward) --- */}
+{timeCapsule && (
+  <div 
+    className="w-full mb-6 cursor-pointer group relative"
+    onClick={() => {
+      // 1. Scroll to the grid item
+      const el = document.getElementById(`week-${timeCapsule.weekIndex}`);
+      if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 2. Open the memory
+      openModal(timeCapsule.weekIndex);
+    }}
+  >
+    {/* Glowing Border Effect */}
+    <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl opacity-75 group-hover:opacity-100 blur transition duration-200"></div>
+    
+    <div className="relative bg-[#121212] rounded-xl p-5 border border-gray-800 flex flex-col gap-3">
+      <div className="flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">↺</span>
+            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">
+              {timeCapsule.yearsAgo} Year{timeCapsule.yearsAgo > 1 ? 's' : ''} Ago
+            </span>
+          </div>
+          <h3 className="text-white font-bold text-lg leading-tight">
+            {timeCapsule.data.title || "Untitled Memory"}
+          </h3>
+        </div>
+        {/* Rating Badge (if it exists) */}
+        {timeCapsule.data.rating && (
+          <div className="bg-gray-800 px-2 py-1 rounded text-xs font-bold text-yellow-500 border border-gray-700">
+            ★ {timeCapsule.data.rating}
+          </div>
+        )}
+      </div>
+
+      {/* Snippet of the text */}
+      {timeCapsule.data.text && (
+        <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">
+          {timeCapsule.data.text}
+        </p>
+      )}
+      
+      <div className="pt-3 border-t border-gray-800/50 flex justify-between items-center mt-1">
+        <span className="text-[10px] text-gray-600 font-mono">{timeCapsule.dateStr}</span>
+        <span className="text-[10px] font-bold text-purple-500 group-hover:translate-x-1 transition-transform">READ MEMORY &rarr;</span>
+      </div>
+    </div>
+  </div>
+)}
               
               {/* Era Navigation Header */}
               <div className="flex justify-between items-center mb-4 bg-[#111] p-3 rounded-xl border border-gray-800 sticky top-0 z-20 shadow-lg">
@@ -1027,12 +1219,29 @@ function App() {
         <div className="fixed bottom-24 right-6 md:bottom-10 md:right-10 flex flex-col items-center gap-4 z-40">
           
           {/* 1. Time Travel Button (Small, on top) */}
+          {/* 1. Time Travel Button (Small, on top) */}
           <button 
             onClick={handleShuffle} 
-            className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 group" 
-            title="Random Memory"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 group flex items-center justify-center" 
+            title="Rediscover a Memory"
           >
-             <span className="text-xl group-hover:rotate-180 transition-transform duration-500 block">🎲</span>
+            {/* Modern Shuffle Icon */}
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="20" 
+              height="20" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+              className="group-hover:rotate-180 transition-transform duration-500"
+            >
+              <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l11.4-11.6a5 5 0 0 1 3.2-1.2H22" />
+              <path d="M16 18h1.7c1.3 0 2.5-.6 3.3-1.7l1.7-1.8" />
+              <path d="M2 5h1.4c1.3 0 2.5.6 3.3 1.7l1.7 1.8" />
+            </svg>
           </button>
 
           {/* 2. Jump to Now Button (Main, on bottom) */}
