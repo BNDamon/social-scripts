@@ -1037,7 +1037,7 @@ function App() {
     )}
           {nextGoal && (
             <div 
-              className="w-full max-w-[1200px] mb-4 flex justify-end px-4 md:px-0"
+              className="w-full max-w-[1200px] mb-4 flex justify-center md:justify-end px-4 md:px-0"
               onClick={() => {
                  const el = document.getElementById(`week-${nextGoal.weekIndex}`);
                  if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
