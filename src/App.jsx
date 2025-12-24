@@ -154,11 +154,11 @@ const LifeTrendChart = ({ data, color = "#22d3ee" }) => {
   );
 };
 
-// Optimization: Strict comparison for WeekBox to prevent unnecessary re-renders
 const WeekBox = React.memo(({ weekIndex, boxClass, opacityClass, animDelay, onClick, isCurrent }) => {
   return (
     <div 
-      className={`w-[10px] h-[10px] md:w-[9px] md:h-[9px] ${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''}`} 
+      // REMOVED: w-[10px] h-[10px] etc. (Now handled dynamically in boxClass)
+      className={`${boxClass} ${opacityClass} ${animDelay ? 'animate-burn-in' : ''} active:scale-50 active:brightness-150 transition-transform duration-75 touch-manipulation`} 
       style={{ animationDelay: animDelay }}
       onClick={() => onClick(weekIndex)} 
       id={`week-${weekIndex}`}
@@ -223,12 +223,13 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[150] backdrop-blur-sm overflow-hidden">
-      <div className={`flex flex-col md:flex-row items-center justify-center gap-6 transition-all duration-500 ${tutorialMode ? 'w-full max-w-6xl' : 'w-full max-w-lg'}`}>
+    <div className="fixed inset-0 bg-black/90 flex items-end md:items-center justify-center p-0 md:p-4 z-[200] backdrop-blur-sm overflow-hidden">
+      <div className="relative w-full max-w-lg">
 
         {/* --- TUTORIAL SIDECAR --- */}
+        {/* FIX: Positioned Absolutely to the LEFT of the main modal */}
         {tutorialMode && (
-          <div className="w-full md:w-80 bg-[#0a0a0a] border border-cyan-500/50 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-left-8 duration-700 flex-shrink-0 order-2 md:order-1">
+          <div className="hidden md:block absolute right-[105%] top-0 w-80 bg-[#0a0a0a] border border-cyan-500/50 p-6 rounded-2xl shadow-2xl animate-in slide-in-from-right-8 duration-700">
              <h3 className="text-xl font-black text-white mb-6 tracking-wide border-b border-gray-800 pb-4">LOGGING A MEMORY</h3>
              <div className="space-y-6 text-sm text-gray-400">
                 <div className="flex gap-4">
@@ -244,7 +245,7 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
         )}
 
         {/* --- MAIN MODAL FORM --- */}
-        <div className={`bg-[#1E1E1E] border ${isFuture ? 'border-dashed border-gray-600' : 'border-gray-800'} shadow-2xl rounded-2xl w-full flex flex-col max-h-[90vh] overflow-hidden flex-shrink-0 order-1 md:order-2 md:max-w-lg`}>
+        <div className={`bg-[#1E1E1E] border ${isFuture ? 'border-dashed border-gray-600' : 'border-gray-800'} shadow-2xl rounded-2xl w-full flex flex-col max-h-[90dvh] md:max-h-[85vh]  overflow-hidden flex-shrink-0 order-1 md:order-2 md:max-w-lg`}>
           <div className="p-6 border-b border-gray-800 bg-[#1E1E1E] z-10">
             <div className="flex justify-between items-center mb-1">
               {/* Dynamic Header */}
@@ -253,17 +254,16 @@ const MemoryModal = ({ weekIndex, initialData, categories, onClose, onSave, isCu
             </div>
             <p className="text-xs uppercase tracking-widest font-bold text-gray-500 flex items-center gap-2"><span className="text-cyan-500">{getDateStr}</span><span>•</span>{getEraName}</p>
           </div>
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+         <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 overscroll-contain">
             <div className="space-y-4">
               <input className="w-full bg-black/50 text-white p-3 rounded-lg border border-gray-700 focus:border-cyan-500 outline-none font-bold" placeholder={isFuture ? "Goal Title (e.g. Marathon)" : "Headline"} value={title} onChange={(e) => setTitle(e.target.value)} />
               
               <div className="flex gap-2">
-                  {/* Hide Rating if setting a future goal */}
                   {!isFuture && (
                     <div className="flex-1 bg-black/30 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
                       <span className="text-xs font-bold text-gray-500">RATING</span>
                       <div className="flex items-center gap-2">
-                        <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                        <input type="range" min="1" max="10" value={rating} onChange={(e) => setRating(parseInt(e.target.value))} className="w-16 md:w-20 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
                         <span className="text-yellow-500 text-xs font-bold">{rating}</span>
                       </div>
                     </div>
@@ -333,6 +333,7 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false); 
   const [selectedWeek, setSelectedWeek] = useState(null);
+  const [mobileEraIndex, setMobileEraIndex] = useState(0);
   
   // --- SELECTION / PREVIEW STATE ---
   const [previewWeek, setPreviewWeek] = useState(null);
@@ -364,6 +365,29 @@ function App() {
     }
     return { name: 'Unknown', color: 'bg-gray-800' };
   };
+
+  const getLifeStats = useMemo(() => {
+    if (!birthday) return { weeksLived: 0, totalWeeks: 4680 };
+    const birthDate = new Date(birthday);
+    const today = new Date();
+    const diffTime = Math.abs(today - birthDate);
+    const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+    return { weeksLived: diffWeeks, totalWeeks: 4680 };
+  }, [birthday]);
+  const stats = getLifeStats;
+
+  useEffect(() => {
+    const idx = eras.findIndex((e, i) => {
+       const next = eras[i+1];
+       return stats.weeksLived >= e.startWeek && (!next || stats.weeksLived < next.startWeek);
+    });
+    if(idx !== -1) setMobileEraIndex(idx);
+  }, [stats.weeksLived, eras]);
+
+  const currentMobileEra = eras[mobileEraIndex];
+  const nextMobileEra = eras[mobileEraIndex + 1];
+  const mobileStartWeek = currentMobileEra?.startWeek || 0;
+  const mobileEndWeek = nextMobileEra ? nextMobileEra.startWeek : stats.totalWeeks;
   
   const getDateFromWeekIndex = (weekIndex) => {
     if (!birthday) return "";
@@ -374,16 +398,6 @@ function App() {
   
   const getAgeFromWeekIndex = (weekIndex) => Math.floor(weekIndex / 52);
   const getCategoryStyle = useCallback((catKey) => { const c = categories[catKey] || categories.default; return { ...PRESET_COLORS[c.colorKey || 'slate'], label: c.label }; }, [categories]);
-  
-  const getLifeStats = useMemo(() => {
-    if (!birthday) return { weeksLived: 0, totalWeeks: 4680 };
-    const birthDate = new Date(birthday);
-    const today = new Date();
-    const diffTime = Math.abs(today - birthDate);
-    const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-    return { weeksLived: diffWeeks, totalWeeks: 4680 };
-  }, [birthday]);
-  const stats = getLifeStats;
 
   const handleShuffle = () => {
     // 1. Get all weeks that have data (title or text) and are in the past
@@ -632,7 +646,7 @@ function App() {
       
       const isAnimatingPast = isPastRaw && !gridReady && showPastAnimation;
 
-      let boxClass = "rounded-[1px] transition-all duration-200 ease-out"; 
+    let boxClass = "rounded-[1px] transition-all duration-200 ease-out no-select w-3.5 h-3.5 md:w-2.5 md:h-2.5 m-[1px] md:m-[1.5px]"; 
       const crossOutAnimDelay = isAnimatingPast ? `${(i / stats.weeksLived) * 2.5}s` : undefined;
       
       if (isPreview) {
@@ -906,15 +920,52 @@ function App() {
         </>
       )}
 
-      {/* GRID VIEW */}
-          {view === 'grid' && (
-              <div className="w-full overflow-x-auto flex justify-center px-4 md:px-0 touch-pan-y no-scrollbar">
-                  <div className="grid-container-optimized flex flex-wrap content-start justify-center gap-[2px] md:gap-[3px] w-full max-w-[1200px] mx-auto pb-32">
-                      {/* RENDER THE MEMOIZED GRID ITEMS HERE */}
-                      {gridItems}
-                  </div>
+      {/* GRID VIEW: Adaptive (Era Focus on Mobile, Full Grid on Desktop) */}
+      {view === 'grid' && (
+        <div className="w-full flex justify-center px-2 md:px-0 touch-pan-y no-scrollbar pb-32">
+           
+           {/* DESKTOP: Render Everything */}
+           <div className="hidden md:flex grid-container-optimized flex-wrap content-start justify-center w-full max-w-[1200px] mx-auto">
+              {gridItems}
+           </div>
+
+           {/* MOBILE: Era Focus Mode */}
+           <div className="flex md:hidden flex-col w-full max-w-[400px]">
+              
+              {/* Era Navigation Header */}
+              <div className="flex justify-between items-center mb-4 bg-[#111] p-3 rounded-xl border border-gray-800 sticky top-0 z-20 shadow-lg">
+                 <button 
+                   onClick={() => setMobileEraIndex(p => Math.max(0, p - 1))}
+                   disabled={mobileEraIndex === 0}
+                   className="text-gray-400 disabled:opacity-30 p-2 hover:text-white"
+                 >
+                   ←
+                 </button>
+                 <div className="text-center">
+                   <div className="text-xs font-bold text-white uppercase tracking-widest">{currentMobileEra?.name}</div>
+                   <div className="text-[10px] text-gray-500">Age {Math.floor(mobileStartWeek/52)} - {Math.floor(mobileEndWeek/52)}</div>
+                 </div>
+                 <button 
+                   onClick={() => setMobileEraIndex(p => Math.min(eras.length - 1, p + 1))}
+                   disabled={mobileEraIndex === eras.length - 1}
+                   className="text-gray-400 disabled:opacity-30 p-2 hover:text-white"
+                 >
+                   →
+                 </button>
               </div>
-          )}
+
+              {/* The Era Grid Slice */}
+              <div className="flex flex-wrap content-start justify-center">
+                 {/* Only render the weeks belonging to this era */}
+                 {gridItems.slice(mobileStartWeek, mobileEndWeek)}
+              </div>
+              
+              <div className="text-center mt-8 text-xs text-gray-600 italic">
+                {mobileEndWeek - mobileStartWeek} weeks in this chapter
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* --- CONTROL BAR (Z-Index 120 to pop over Tutorial) --- */}
       {previewWeek !== null && (
