@@ -82,16 +82,16 @@ const DEFAULT_ERAS = [
 ];
 
 const JOURNAL_PROMPTS = [
-  "What was the highlight of this week?",
-  "Who made you smile this week?",
-  "What is one thing you learned?",
-  "Did you try anything new?",
-  "What was a challenge you overcame?",
-  "How did you spend your free time?",
-  "What music were you listening to?",
-  "Rate your energy levels this week.",
-  "What is one thing you are grateful for?",
-  "Who did you enjoy spending time with?"
+  "E.g; What was the highlight of this week?",
+  "E.g; Who made you smile this week?",
+  "E.g; What is one thing you learned?",
+  "E.g; Did you try anything new?",
+  "E.g; What was a challenge you overcame?",
+  "E.g; How did you spend your free time?",
+  "E.g; What music were you listening to?",
+  "E.g; Rate your energy levels this week.",
+  "E.g; What is one thing you are grateful for?",
+  "E.g; Who did you enjoy spending time with?"
 ];
 
 const PRESET_COLORS = {
@@ -120,14 +120,14 @@ const INITIAL_CATEGORIES = {
 };
 
 const WRITING_PROMPTS = [
-  "What was the highlight of this week?",
-  "What is one thing you learned?",
-  "Who did you enjoy spending time with?",
-  "What was a challenge you overcame?",
-  "Rate your energy levels this week.",
-  "What music were you listening to?",
-  "What's one thing you're grateful for?",
-  "Did you try anything new?"
+  "E.g; What was the highlight of this week?",
+  "E.g; What is one thing you learned?",
+  "E.g; Who did you enjoy spending time with?",
+  "E.g; What was a challenge you overcame?",
+  "E.g; Rate your energy levels this week.",
+  "E.g; What music were you listening to?",
+  "E.g; What's one thing you're grateful for?",
+  "E.g; Did you try anything new?"
 ];
 
 const LifeTrendChart = ({ data, color = "#22d3ee" }) => {
@@ -800,10 +800,18 @@ function App() {
     set('dob', date);
   };
 
-  const resetApp = () => {
+  const resetApp = async () => {
     if (confirm("DANGER: This will permanently delete ALL your memories.\n\nAre you sure?")) {
-      localStorage.removeItem('dob'); localStorage.removeItem('intentions'); localStorage.removeItem('categories'); localStorage.removeItem('reminderTime'); localStorage.removeItem('tutorial_seen');
-      setBirthday(''); setIntentions({}); setCategories(INITIAL_CATEGORIES); setShowSettings(false); setTutorialStep(0); setGridReady(false);
+      // 1. Wait for the database to fully wipe
+      await clear(); 
+      // 2. Clear local storage
+      localStorage.clear();
+      // 3. Reset state just in case
+      setBirthday(''); 
+      setIntentions({}); 
+      setCategories(INITIAL_CATEGORIES); 
+      // 4. Force reload
+      window.location.reload();
     }
   };
 
@@ -1513,7 +1521,7 @@ function App() {
 
           {/* STEP 4: "TRY IT OUT" */}
           {tutorialStep === 4 && (
-            <div className="flex justify-center pointer-events-none w-full">
+            <div className="absolute inset-0 flex flex-col items-center justify-end pb-48 pointer-events-none w-full z-50">
                <div className="bg-[#1E1E1E] border border-cyan-500/50 p-8 rounded-3xl shadow-[0_0_60px_rgba(6,182,212,0.4)] max-w-sm mx-4 relative backdrop-blur-xl pointer-events-auto animate-bounce-slight text-center">
                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-[#1E1E1E] border-r border-b border-cyan-500/50 rotate-45"></div>
                  
