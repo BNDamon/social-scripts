@@ -1487,7 +1487,7 @@ function App() {
 
           {/* STEP 2: ANIMATION */}
           {tutorialStep === 2 && (
-            <div className="flex justify-center pointer-events-none w-full">
+            <div className="absolute inset-0 flex flex-col items-center justify-end pb-48 pointer-events-none w-full z-50">
                <div className="bg-[#1E1E1E]/90 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] max-w-sm mx-4 backdrop-blur-md pointer-events-auto text-center animate-in slide-in-from-bottom-10 duration-500">
                  <h3 className="text-2xl font-bold text-white mb-2">YOUR PAST</h3>
                  <p className="text-gray-300 text-base mb-6 leading-relaxed">
